@@ -1,3 +1,8 @@
+# Pycharm project
+.idea/
+# Folder for saving adversarial textures
+image_dir/
+
 ### OSX ###
 *.DS_Store
 .AppleDouble
