@@ -2,6 +2,7 @@
 .idea/
 # Folder for saving adversarial textures
 image_dir/
+renders/
 
 ### OSX ###
 *.DS_Store
