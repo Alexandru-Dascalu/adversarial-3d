@@ -168,6 +168,8 @@ class Renderer(object):
 
             self.mvp.write(transform.astype('f4').tobytes())
             self.vao.render()
+            Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
+                'renders/scene_{}.jpg'.format(i))
 
             framebuffer = self.fbo.read(components=2, floats=True)
             warp[i] = np.frombuffer(framebuffer, dtype=np.float32).reshape(
