@@ -1,5 +1,6 @@
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
+import tf_slim as slim
+import tensorflow_addons as tfa
 
 from config import cfg
 from nets import inception_v3
@@ -42,9 +43,9 @@ class AdversarialNet(object):
             std_textures = self.transform(std_textures, multiplier, addend)
             adv_textures = self.transform(adv_textures, multiplier, addend)
 
-        std_images = tf.contrib.resampler.resampler(
+        std_images = tfa.image.resampler(
             std_textures, self.uv_mapping)
-        adv_images = tf.contrib.resampler.resampler(
+        adv_images = tfa.image.resampler(
             adv_textures, self.uv_mapping)
 
         mask = tf.reduce_all(
