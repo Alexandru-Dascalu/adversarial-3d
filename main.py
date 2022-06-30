@@ -26,13 +26,13 @@ def main():
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
     model = AdversarialNet(texture)
 
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.compat.v1.global_variables_initializer())
 
-        saver = tf.train.Saver(slim.get_model_variables(scope='InceptionV3'))
+        saver = tf.compat.v1.train.Saver(slim.get_model_variables(scope='InceptionV3'))
         saver.restore(sess, os.path.join(cfg.model_dir, cfg.model_name))
 
-        writer = tf.summary.FileWriter(cfg.logdir)
+        writer = tf.compat.v1.summary.FileWriter(cfg.logdir)
 
         for i in range(cfg.iterations):
             uv = renderer.render(cfg.batch_size) * \
