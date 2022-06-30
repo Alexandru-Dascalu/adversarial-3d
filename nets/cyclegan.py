@@ -20,8 +20,8 @@ from __future__ import print_function
 import numpy as np
 
 import tensorflow as tf
-
-layers = tf.contrib.layers
+import tf_slim as slim
+import tensorflow.keras.layers as layers
 
 
 def cyclegan_arg_scope(instance_norm_center=True,
@@ -54,7 +54,7 @@ def cyclegan_arg_scope(instance_norm_center=True,
   if weight_decay and weight_decay > 0.0:
     weights_regularizer = layers.l2_regularizer(weight_decay)
 
-  with tf.contrib.framework.arg_scope(
+  with slim.arg_scope(
       [layers.conv2d],
       normalizer_fn=layers.instance_norm,
       normalizer_params=instance_norm_params,
@@ -186,7 +186,7 @@ def cyclegan_generator_resnet(images,
       dtype=np.int32)
   spatial_pad_3 = np.array([[0, 0], [3, 3], [3, 3], [0, 0]])
 
-  with tf.contrib.framework.arg_scope(arg_scope_fn()):
+  with slim.arg_scope(arg_scope_fn()):
 
     ###########
     # Encoder #
@@ -198,7 +198,7 @@ def cyclegan_generator_resnet(images,
       end_points['encoder_0'] = net
 
     with tf.compat.v1.variable_scope('encoder'):
-      with tf.contrib.framework.arg_scope(
+      with slim.arg_scope(
           [layers.conv2d],
           kernel_size=kernel_size,
           stride=2,
@@ -216,7 +216,7 @@ def cyclegan_generator_resnet(images,
     # Residual Blocks #
     ###################
     with tf.compat.v1.variable_scope('residual_blocks'):
-      with tf.contrib.framework.arg_scope(
+      with slim.arg_scope(
           [layers.conv2d],
           kernel_size=kernel_size,
           stride=1,
@@ -238,7 +238,7 @@ def cyclegan_generator_resnet(images,
     ###########
     with tf.compat.v1.variable_scope('decoder'):
 
-      with tf.contrib.framework.arg_scope(
+      with slim.arg_scope(
           [layers.conv2d],
           kernel_size=kernel_size,
           stride=1,
