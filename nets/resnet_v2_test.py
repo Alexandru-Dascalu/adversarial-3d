@@ -23,8 +23,7 @@ import tensorflow as tf
 
 from nets import resnet_utils
 from nets import resnet_v2
-
-slim = tf.contrib.slim
+import tf_slim as slim
 
 
 def create_test_input(batch_size, height, width, channels):

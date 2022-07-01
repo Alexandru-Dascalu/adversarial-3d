@@ -20,7 +20,7 @@ from __future__ import print_function
 from math import log
 
 import tensorflow as tf
-slim = tf.contrib.slim
+import tf_slim as slim
 
 
 def _validate_image_inputs(inputs):

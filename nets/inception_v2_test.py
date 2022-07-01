@@ -22,8 +22,7 @@ import numpy as np
 import tensorflow as tf
 
 from nets import inception
-
-slim = tf.contrib.slim
+import tf_slim as slim
 
 
 class InceptionV2Test(tf.test.TestCase):
