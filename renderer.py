@@ -1,5 +1,5 @@
 import os
-import moderngl
+import ModernGL
 from objloader import Obj
 from PIL import Image
 from pyrr import Matrix44, Vector3
