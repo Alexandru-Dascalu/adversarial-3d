@@ -11,6 +11,7 @@ from renderer import Renderer
 from net import AdversarialNet
 from config import cfg
 
+
 def main():
     texture = Image.open(cfg.texture)
     height, width = texture.size
