@@ -1,10 +1,8 @@
 import tensorflow as tf
-import tf_slim as slim
 import tensorflow_addons as tfa
 import numpy as np
 
 from config import cfg
-from nets import inception_v3
 
 
 class AdversarialNet(tf.Module):
@@ -22,10 +20,9 @@ class AdversarialNet(tf.Module):
 
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
         images_tensor_size = (cfg.batch_size,) + self.std_texture.shape
-        self.std_images = tf.Variable(np.zeros(images_tensor_size, dtype=np.float32),
-                                      shape=images_tensor_size, name='std_images')
-        self.adv_images = tf.Variable(np.zeros(images_tensor_size, dtype=np.float32),
-                                      shape=images_tensor_size, name='adv_images')
+        self.std_images = np.zeros(images_tensor_size, dtype=np.float32)
+        self.adv_images = np.zeros(images_tensor_size, dtype=np.float32)
+        self.uv_mapping = []
 
         self.train_summary = []
         self.inceptionv3_enpoints = []
@@ -33,10 +30,16 @@ class AdversarialNet(tf.Module):
         self.loss = 0
 
         self.optimiser = tf.keras.optimizers.Adam(cfg.learning_rate)
+        self.victim_model = tf.keras.applications.inception_v3.InceptionV3(
+            include_top=True,
+            weights='imagenet',
+            classifier_activation='softmax'
+        )
+        self.victim_model.trainable = False
 
     # UV mapping is the matrix M used to transform texture x into the image with rendered object. Since UV mapping
     # is calculated for each individual 3D render, we just initialise it with random values.
-    def __call__(self, uv_mapping):
+    def __call__(self):
         # self.uv_mapping = tf.Variable(np.empty((cfg.batch_size, 0, 0, 2), dtype=np.float32),
         #                               shape=[cfg.batch_size, None, None, 2], name='uv_mapping')
 
@@ -52,10 +55,10 @@ class AdversarialNet(tf.Module):
         self.adv_images = tfa.image.resampler(adv_textures, self.uv_mapping)
 
         # add background colour to rendered images.
-        self.add_background(uv_mapping)
+        self.add_background()
 
         if cfg.photo_error:
-           self.apply_photo_error()
+            self.apply_photo_error()
 
         # TODO: clip or scale to [0.0, 1.0]?
         # std_images = tf.clip_by_value(std_images, 0, 1)
@@ -63,16 +66,14 @@ class AdversarialNet(tf.Module):
         self.std_images, self.adv_images = self.normalize(self.std_images, self.adv_images)
 
         # Pass images through trained model and get predictions in the form of logits
-        with slim.arg_scope(inception_v3.inception_v3_arg_scope()):
-            # why scale the images?
-            scaled_images = 2.0 * self.adv_images - 1.0
-            logits_v3, end_points_v3 = inception_v3.inception_v3(
-                scaled_images, num_classes=1001, is_training=False)
+        # why scale the images?
+        scaled_images = 2.0 * self.adv_images - 1.0
+        logits_v3 = self.victim_model(scaled_images)
 
-        return logits_v3, end_points_v3
+        return logits_v3
 
-    def loss_function(self, inputs):
-        prediction_logits, endpoints = self(inputs)
+    def loss_function(self):
+        prediction_logits = self()
 
         # Calculate cross entropy loss for predictions
         labels = tf.constant(cfg.target, dtype=tf.int64, shape=[cfg.batch_size])
@@ -83,11 +84,14 @@ class AdversarialNet(tf.Module):
 
         # loss = tf.reduce_mean(input_tensor=cross_entropy_loss + cfg.l2_weight * l2_loss)
         loss = cross_entropy_loss + cfg.l2_weight * l2_loss
+        loss = tf.reduce_mean(loss)
         self.loss = loss
         return loss
 
-    def optimisation_step(self, inputs):
-        self.optimiser.minimize(self.loss_function(inputs), var_list=[self.adv_texture])
+    def optimisation_step(self, uv_mapping):
+        self.uv_mapping = uv_mapping
+
+        self.optimiser.minimize(self.loss_function, var_list=[self.adv_texture])
         self.adv_texture.assign(tf.clip_by_value(self.adv_texture, 0, 1), name="clip optimised adv texture")
 
         self.log_trainning()
@@ -163,9 +167,9 @@ class AdversarialNet(tf.Module):
         """
         return tf.add(tf.multiply(a, x), b)
 
-    def add_background(self, uv_mapping):
+    def add_background(self):
         mask = tf.reduce_all(
-            input_tensor=tf.not_equal(uv_mapping, 0.0), axis=3, keepdims=True)
+            input_tensor=tf.not_equal(self.uv_mapping, 0.0), axis=3, keepdims=True)
         color = tf.random.uniform(
             [cfg.batch_size, 1, 1, 3], cfg.background_min, cfg.background_max)
 
