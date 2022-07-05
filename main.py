@@ -36,7 +36,7 @@ def main():
         print('Prediction:\n{}'.format(model.top_k_predictions))
 
         if i % 10 == 0:
-            adv_texture = np.rint(model.adv_texture[0] * 255)
+            adv_texture = np.rint(model.adv_texture.numpy() * 255)
             adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
             adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
 
