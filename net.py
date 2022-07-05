@@ -27,11 +27,11 @@ class AdversarialNet(tf.Module):
         self.top_k_predictions = []
         self.loss = 0
 
-        self.optimiser = tf.keras.optimizers.Adam(cfg.learning_rate)
+        self.optimiser = tf.keras.optimizers.Adam(learning_rate=cfg.learning_rate)
         self.victim_model = tf.keras.applications.inception_v3.InceptionV3(
             include_top=True,
             weights='imagenet',
-            classifier_activation='softmax'
+            classifier_activation=None
         )
         self.victim_model.trainable = False
 
