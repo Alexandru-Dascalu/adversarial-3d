@@ -35,12 +35,12 @@ def main():
         print('Diff: {}'.format(model.get_diff().sum()))
         print('Prediction:\n{}'.format(model.top_k_predictions))
 
-        writer.add_summary(model.train_summary, i)
-
         if i % 10 == 0:
             adv_texture = np.rint(model.adv_texture[0] * 255)
             adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
             adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
+
+    writer.close()
 
 
 def log_trainning(model, writer, epoch):
@@ -49,6 +49,7 @@ def log_trainning(model, writer, epoch):
         tf.summary.image('train/adv_images', model.adv_images, step=epoch)
         tf.summary.scalar('train/loss', model.loss, step=epoch)
         tf.summary.histogram('train/top_k_predictions', model.top_k_predictions, step=epoch)
+        writer.flush()
 
 
 if __name__ == '__main__':

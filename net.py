@@ -94,7 +94,8 @@ class AdversarialNet(tf.Module):
         self.adv_texture.assign(tf.clip_by_value(self.adv_texture, 0, 1), name="clip optimised adv texture")
 
     def get_diff(self):
-        return self.adv_texture - self.std_texture
+        diff_tensor = self.adv_texture - self.std_texture
+        return diff_tensor.numpy()
 
     @staticmethod
     def apply_print_error(std_textures, adv_textures):
