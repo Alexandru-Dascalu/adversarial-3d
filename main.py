@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import tensorflow as tf
 from PIL import Image
@@ -33,6 +30,7 @@ def main():
 
         model.optimisation_step(uv)
 
+        log_trainning(model, writer, i)
         print('Loss: {}'.format(model.loss))
         print('Diff: {}'.format(model.get_diff().sum()))
         print('Prediction:\n{}'.format(model.top_k_predictions))
@@ -43,6 +41,15 @@ def main():
             adv_texture = np.rint(model.adv_texture[0] * 255)
             adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
             adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
+
+
+def log_trainning(model, writer, epoch):
+    with writer.as_default():
+        tf.summary.image('train/std_images', model.std_images, step=epoch)
+        tf.summary.image('train/adv_images', model.adv_images, step=epoch)
+        tf.summary.scalar('train/loss', model.loss, step=epoch)
+        tf.summary.histogram('train/top_k_predictions', model.top_k_predictions, step=epoch)
+
 
 if __name__ == '__main__':
     main()

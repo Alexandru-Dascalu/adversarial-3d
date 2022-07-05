@@ -24,8 +24,6 @@ class AdversarialNet(tf.Module):
         self.adv_images = np.zeros(images_tensor_size, dtype=np.float32)
         self.uv_mapping = []
 
-        self.train_summary = []
-        self.inceptionv3_enpoints = []
         self.top_k_predictions = []
         self.loss = 0
 
@@ -74,6 +72,7 @@ class AdversarialNet(tf.Module):
 
     def loss_function(self):
         prediction_logits = self()
+        _, self.top_k_predictions = tf.nn.top_k(tf.nn.softmax(prediction_logits), k=5)
 
         # Calculate cross entropy loss for predictions
         labels = tf.constant(cfg.target, dtype=tf.int64, shape=[cfg.batch_size])
@@ -94,22 +93,8 @@ class AdversarialNet(tf.Module):
         self.optimiser.minimize(self.loss_function, var_list=[self.adv_texture])
         self.adv_texture.assign(tf.clip_by_value(self.adv_texture, 0, 1), name="clip optimised adv texture")
 
-        self.log_trainning()
-
     def get_diff(self):
         return self.adv_texture - self.std_texture
-
-    def log_trainning(self):
-        train_summary = []
-        train_summary.append(tf.compat.v1.summary.image('train/std_images', self.std_images))
-        train_summary.append(tf.compat.v1.summary.image('train/adv_images', self.adv_images))
-        train_summary.append(tf.compat.v1.summary.scalar('train/loss', self.loss))
-        train_summary.append(tf.compat.v1.summary.histogram(
-            'train/predictions', self.inceptionv3_enpoints['Predictions']))
-
-        _, self.top_k_predictions = tf.nn.top_k(self.inceptionv3_enpoints['Predictions'], 5)
-
-        self.train_summary = tf.compat.v1.summary.merge(train_summary)
 
     @staticmethod
     def apply_print_error(std_textures, adv_textures):
