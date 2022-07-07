@@ -1,5 +1,10 @@
 import numpy as np
 import tensorflow as tf
+# gpu = tf.config.list_physical_devices('GPU')[0]
+# tf.config.set_logical_device_configuration(
+#         gpu,
+#         [tf.config.LogicalDeviceConfiguration(memory_limit=3900)])
+
 from PIL import Image
 
 from renderer import Renderer
@@ -20,25 +25,25 @@ def main():
     )
 
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
-    model = AdversarialNet(texture)
-
     writer = tf.summary.create_file_writer(cfg.logdir)
 
-    for i in range(cfg.iterations):
-        uv = renderer.render(cfg.batch_size) * \
-            np.asarray([width - 1, height - 1], dtype=np.float32)
+    with tf.device("device:GPU:0"):
+        model = AdversarialNet(texture)
+        for i in range(cfg.iterations):
+            uv = renderer.render(cfg.batch_size) * \
+                np.asarray([width - 1, height - 1], dtype=np.float32)
 
-        model.optimisation_step(uv)
+            model.optimisation_step(uv)
 
-        log_trainning(model, writer, i)
-        print('Loss: {}'.format(model.loss))
-        print('Diff: {}'.format(model.get_diff().sum()))
-        print('Prediction:\n{}'.format(model.top_k_predictions))
+            log_trainning(model, writer, i)
+            print('Loss: {}'.format(model.loss))
+            print('Diff: {}'.format(model.get_diff().sum()))
+            print('Prediction:\n{}'.format(model.top_k_predictions))
 
-        if i % 10 == 0:
-            adv_texture = np.rint(model.adv_texture.numpy() * 255)
-            adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
-            adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
+            if i % 10 == 0:
+                adv_texture = np.rint(model.adv_texture.numpy() * 255)
+                adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
+                adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
 
     writer.close()
 
