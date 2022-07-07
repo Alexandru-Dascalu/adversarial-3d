@@ -6,7 +6,6 @@ import tensorflow as tf
 #         [tf.config.LogicalDeviceConfiguration(memory_limit=3900)])
 
 from PIL import Image
-
 from renderer import Renderer
 from net import AdversarialNet
 from config import cfg

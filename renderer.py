@@ -1,5 +1,5 @@
 import os
-import ModernGL
+import moderngl
 from objloader import Obj
 from PIL import Image
 from pyrr import Matrix44, Vector3
@@ -18,19 +18,20 @@ class Renderer(object):
         self.width, self.height = viewport
 
         # require OpenGL 330 core profile
-        self.ctx = ModernGL.create_standalone_context(viewport, require=330)
-        self.ctx.enable(ModernGL.DEPTH_TEST)
-        self.ctx.enable(ModernGL.CULL_FACE)
+        self.ctx = moderngl.create_standalone_context(require=330)
+        self.ctx.enable(moderngl.DEPTH_TEST)
+        self.ctx.enable(moderngl.CULL_FACE)
 
         # frame buffer object
+        texture_data = Image.open("3d_model/barrel.jpg").tobytes()
         self.fbo = self.ctx.framebuffer(
-            self.ctx.texture(viewport, components=2, floats=True),
+            [self.ctx.texture(viewport, components=2, data=texture_data, dtype=float)],
             self.ctx.depth_renderbuffer(viewport)
         )
 
         # shader program
-        self.prog = self.ctx.program([
-            self.ctx.vertex_shader('''
+        self.prog = self.ctx.program(
+            vertex_shader='''
                 #version 330 core
 
                 // model view projection matrix
@@ -48,8 +49,8 @@ class Renderer(object):
                     // therefore we need to flip the V-axis
                     v_text = vec2(in_text.x, 1.0f - in_text.y);
                 }
-            '''),
-            self.ctx.fragment_shader('''
+            ''',
+            fragment_shader='''
                 #version 330 core
 
                 in vec2 v_text;
@@ -59,10 +60,10 @@ class Renderer(object):
                 void main() {
                     f_color = v_text;
                 }
-            ''')
-        ])
+            '''
+        )
 
-        self.mvp = self.prog.uniforms['mvp']
+        self.mvp = self.prog['Mvp']
 
     def load_obj(self, filename):
         if not os.path.isfile(filename):
@@ -171,7 +172,7 @@ class Renderer(object):
             Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
                 'renders/scene_{}.jpg'.format(i))
 
-            framebuffer = self.fbo.read(components=2, floats=True)
+            framebuffer = self.fbo.read(components=2, dtype=float)
             warp[i] = np.frombuffer(framebuffer, dtype=np.float32).reshape(
                 (self.height, self.width, 2))[::-1]
 
