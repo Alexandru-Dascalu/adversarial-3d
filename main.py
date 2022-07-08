@@ -10,6 +10,8 @@ from renderer import Renderer
 from net import AdversarialNet
 from config import cfg
 
+LOGGING_ENABLED = False
+
 
 def main():
     texture = Image.open(cfg.texture)
@@ -25,7 +27,7 @@ def main():
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
     writer = tf.summary.create_file_writer(cfg.logdir)
 
-    with tf.device("device:GPU:0"):
+    with tf.device("/device:GPU:0"):
         model = AdversarialNet(texture)
         for i in range(cfg.iterations):
             uv = renderer.render(cfg.batch_size) * \
@@ -33,7 +35,8 @@ def main():
 
             model.optimisation_step(uv)
 
-            log_trainning(model, writer, i)
+            if LOGGING_ENABLED:
+                log_trainning(model, writer, i)
             print('Loss: {}'.format(model.loss))
             print('Diff: {}'.format(model.get_diff().sum()))
             print('Prediction:\n{}'.format(model.top_k_predictions))
