@@ -24,7 +24,7 @@ class Renderer(object):
 
         # frame buffer object
         self.fbo = self.ctx.framebuffer(
-            [self.ctx.texture(viewport, components=2, dtype='f1')],
+            [self.ctx.texture(viewport, components=2, dtype='f4')],
             self.ctx.depth_renderbuffer(viewport)
         )
 
@@ -61,7 +61,7 @@ class Renderer(object):
                 }
             '''
         )
-        self.mvp = self.prog["MVP"]
+        self.mvp = self.prog["mvp"]
         self.load_obj(file_name)
 
     def load_obj(self, filename):
@@ -171,7 +171,7 @@ class Renderer(object):
             Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
                 'renders/scene_{}.jpg'.format(i))
 
-            framebuffer = self.fbo.read(components=2, dtype='f1')
+            framebuffer = self.fbo.read(components=2, dtype='f4')
             warp[i] = np.frombuffer(framebuffer, dtype=np.float32).reshape(
                 (self.height, self.width, 2))[::-1]
 
