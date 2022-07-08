@@ -15,8 +15,7 @@ def main():
     texture = Image.open(cfg.texture)
     height, width = texture.size
 
-    renderer = Renderer((299, 299))
-    renderer.load_obj(cfg.obj)
+    renderer = Renderer(cfg.obj, (299, 299))
     renderer.set_parameters(
         camera_distance=(cfg.camera_distance_min, cfg.camera_distance_max),
         x_translation=(cfg.x_translation_min, cfg.x_translation_max),

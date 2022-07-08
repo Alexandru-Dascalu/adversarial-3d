@@ -8,7 +8,7 @@ import numpy as np
 
 class Renderer(object):
 
-    def __init__(self, viewport=(299, 299)):
+    def __init__(self, file_name, viewport=(299, 299)):
         """
         Construct a Renderer object
 
@@ -23,9 +23,8 @@ class Renderer(object):
         self.ctx.enable(moderngl.CULL_FACE)
 
         # frame buffer object
-        texture_data = Image.open("3d_model/barrel.jpg").tobytes()
         self.fbo = self.ctx.framebuffer(
-            [self.ctx.texture(viewport, components=2, data=texture_data, dtype=float)],
+            [self.ctx.texture(viewport, components=2, dtype='f1')],
             self.ctx.depth_renderbuffer(viewport)
         )
 
@@ -62,8 +61,8 @@ class Renderer(object):
                 }
             '''
         )
-
-        self.mvp = self.prog['Mvp']
+        self.mvp = self.prog["MVP"]
+        self.load_obj(file_name)
 
     def load_obj(self, filename):
         if not os.path.isfile(filename):
@@ -76,7 +75,7 @@ class Renderer(object):
         self.vao = self.ctx.simple_vertex_array(
             self.prog,
             self.ctx.buffer(obj.pack('vx vy vz tx ty')),
-            ['in_vert', 'in_text']
+            "in_vert", "in_text"
         )
 
     def set_parameters(self,
@@ -172,7 +171,7 @@ class Renderer(object):
             Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
                 'renders/scene_{}.jpg'.format(i))
 
-            framebuffer = self.fbo.read(components=2, dtype=float)
+            framebuffer = self.fbo.read(components=2, dtype='f1')
             warp[i] = np.frombuffer(framebuffer, dtype=np.float32).reshape(
                 (self.height, self.width, 2))[::-1]
 
