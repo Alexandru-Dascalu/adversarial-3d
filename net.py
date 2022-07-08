@@ -8,20 +8,24 @@ from config import cfg
 class AdversarialNet(tf.Module):
 
     def __init__(self, texture):
-        """Construct a network for generating 3D adversarial examples
-        Args:
-            texture: a numpy array with shape [height, width, 3]
-            is_training: training or inference
+        """Construct a model for generating 3D adversarial examples by optimising the texture of the object to be
+        adversarial under a variety of random rotations, translations, camera and printing errors.
+
+        Parameters
+        ----------
+        texture : numpy array
+            A numpy array with shape [height, width, 3]
         """
         super(AdversarialNet, self).__init__()
 
+        # 2048x2048x3 tensors, each takes 50 MB
         self.std_texture = tf.constant(texture, name='texture')
         self.adv_texture = tf.Variable(self.std_texture, trainable=True, name='adv_texture')
 
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
-        images_tensor_size = (cfg.batch_size,) + self.std_texture.shape
-        self.std_images = np.zeros(images_tensor_size, dtype=np.float32)
-        self.adv_images = np.zeros(images_tensor_size, dtype=np.float32)
+        batch_tensor_size = (cfg.batch_size,) + self.std_texture.shape
+        self.std_images = np.zeros(batch_tensor_size, dtype=np.float32)
+        self.adv_images = np.zeros(batch_tensor_size, dtype=np.float32)
         self.uv_mapping = []
 
         self.top_k_predictions = []
