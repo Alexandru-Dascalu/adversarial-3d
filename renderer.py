@@ -2,27 +2,37 @@ import os
 import moderngl
 from objloader import Obj
 from PIL import Image
-from pyrr import Matrix44, Vector3
+from pyrr import Matrix44
 import numpy as np
 
 
 class Renderer(object):
 
-    def __init__(self, file_name, viewport=(299, 299)):
+    def __init__(self, model_path, viewport=(299, 299)):
         """
-        Construct a Renderer object
+        Construct a Renderer object used to compute the UV mapping for a certain 3D model, in a certain pose with a
+        random rotation, translation, camera distance, background, photo error and texture printing error. These random
+        variables are drawn from bounded or unbounded uniform distributions.
 
-        viewport: width and height of windows
+        Parameters
+        ----------
+        model_path : string
+            Path to .obj file of the object that will be rendered.
+        viewport : tuple(int, int)
+            width and height of the rendered image.
         """
         super(Renderer, self).__init__()
         self.width, self.height = viewport
 
-        # require OpenGL 330 core profile
+        # Create ModernGL context, which exposes OpenGL features. Require OpenGL 330 core profile
         self.ctx = moderngl.create_standalone_context(require=330)
+        # why use depth test and face culling? Is it necessary to discard polygons which will not be visible in the
+        # image, as we do not need those for computing the UV mapping?
         self.ctx.enable(moderngl.DEPTH_TEST)
         self.ctx.enable(moderngl.CULL_FACE)
 
-        # frame buffer object
+        # Create frame buffer, where the scene will be rendered. Texture is empty, as we do not need the actual texture
+        # of the model for calculating the UV mapping.
         self.fbo = self.ctx.framebuffer(
             [self.ctx.texture(viewport, components=2, dtype='f4')],
             self.ctx.depth_renderbuffer(viewport)
@@ -49,6 +59,7 @@ class Renderer(object):
                     v_text = vec2(in_text.x, 1.0f - in_text.y);
                 }
             ''',
+            # since we do not render the texture, the fragment shader does nothing
             fragment_shader='''
                 #version 330 core
 
@@ -61,17 +72,30 @@ class Renderer(object):
                 }
             '''
         )
-        self.mvp = self.prog["mvp"]
-        self.load_obj(file_name)
 
-    def load_obj(self, filename):
-        if not os.path.isfile(filename):
-            print('{} is not an existing regular file!'.format(filename))
+        # get reference to uniform pointing to Model View Projection Matrix
+        self.mvp = self.prog["mvp"]
+        self.vao = []
+
+        self.load_obj(model_path)
+
+    def load_obj(self, file_path):
+        """
+        Load 3D model from .obj file and create vertex array based on it.
+
+        Parameters
+        ----------
+        file_path : string
+            Path to .obj file of the object that will be rendered.
+        """
+        if not os.path.isfile(file_path):
+            print('{} is not an existing regular file!'.format(file_path))
             return
 
-        obj = Obj.open(filename)
+        obj = Obj.open(file_path)
 
         # TODO: not very efficient, consider using an element index array later
+        # make vertex array with two attributes, in_vert as vec3 and in_text as vec_2
         self.vao = self.ctx.simple_vertex_array(
             self.prog,
             self.ctx.buffer(obj.pack('vx vy vz tx ty')),
@@ -86,14 +110,22 @@ class Renderer(object):
         """
         Set parameters for rendering.
 
-        camera_distance: the minimum and maximum distance from camera
-        x_translation: the minimum and maximum translation along x-axis
-        y_translation: the minimum and maximum translation along y-axis
-        deflection: the magnitude of the rotation, see rand_rotation_matrix
+        Parameters
+        ----------
+        camera_distance : float
+            The minimum and maximum distance from camera.
+        x_translation : float
+            The minimum and maximum translation along x-axis.
+        y_translation : float
+            The minimum and maximum translation along y-axis.
+        deflection : float between 0 and 1.
+            The magnitude of the rotation, see rand_rotation_matrix.
         """
         self.close, self.far = camera_distance
         self.x_low, self.x_high = x_translation
         self.y_low, self.y_high = y_translation
+
+        assert 0 <= deflection <= 1
         self.deflection = deflection
 
     @staticmethod
@@ -140,34 +172,54 @@ class Renderer(object):
         return M
 
     def render(self, batch_size):
+        """
+        Render a batch of images of the object, each time in a different random pose, and returns the UV mappings for
+        each.
+
+        Parameters
+        ----------
+        batch_size : int
+            Number of new different renders that will be created.
+        Returns
+        -------
+        warp
+            Numpy array representing the UV mapping.
+        """
         warp = np.empty(
             (batch_size, self.height, self.width, 2), dtype=np.float32)
+
         for i in range(batch_size):
-            translation = Matrix44.from_translation((
+            translation_matrix = Matrix44.from_translation((
                 np.random.uniform(self.x_low, self.x_high),
                 np.random.uniform(self.y_low, self.y_high),
                 0.0
             ))
-            rotation = Matrix44.from_matrix33(
+
+            rotation_matrix = Matrix44.from_matrix33(
                 self.rand_rotation_matrix(self.deflection)
             )
-            view = Matrix44.look_at(
+
+            view_matrix = Matrix44.look_at(
                 (0.0, 0.0, np.random.uniform(self.close, self.far)),
                 (0.0, 0.0, 0.0),
                 (0.0, 1.0, 0.0),
             )
-            projection = Matrix44.perspective_projection(
+
+            projection_matrix = Matrix44.perspective_projection(
                 45.0, self.width / self.height, 0.1, 1000.0
             )
 
             # TODO: translation or rotation first?
-            transform = projection * view * translation * rotation
+            transform = projection_matrix * view_matrix * translation_matrix * rotation_matrix
 
+            # make frame buffer ready for new render
             self.fbo.use()
             self.fbo.clear()
 
+            # use computed transformation matrix as the MVP which will be used in the vertex shader
             self.mvp.write(transform.astype('f4').tobytes())
             self.vao.render()
+
             Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
                 'renders/scene_{}.jpg'.format(i))
 
