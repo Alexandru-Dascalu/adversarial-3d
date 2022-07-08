@@ -24,10 +24,11 @@ class AdversarialNet(tf.Module):
 
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
         batch_tensor_size = (cfg.batch_size,) + self.std_texture.shape
+        # with a batch size of 12, each of these take up around 600 MB
         self.std_images = np.zeros(batch_tensor_size, dtype=np.float32)
         self.adv_images = np.zeros(batch_tensor_size, dtype=np.float32)
-        self.uv_mapping = []
 
+        self.uv_mapping = []
         self.top_k_predictions = []
         self.loss = 0
 
@@ -39,16 +40,38 @@ class AdversarialNet(tf.Module):
         )
         self.victim_model.trainable = False
 
-    # UV mapping is the matrix M used to transform texture x into the image with rendered object. Since UV mapping
-    # is calculated for each individual 3D render, we just initialise it with random values.
-    def __call__(self):
-        # self.uv_mapping = tf.Variable(np.empty((cfg.batch_size, 0, 0, 2), dtype=np.float32),
-        #                               shape=[cfg.batch_size, None, None, 2], name='uv_mapping')
+    def optimisation_step(self, uv_mapping):
+        """Perform one step of optmising the adversarial texture.
 
+        Parameters
+        ----------
+        uv_mapping : numpy array
+            A numpy array with shape [batch_size, image_height, image_width, 2]. Represents the UV mappings for each
+            image in the batch. These mappigns are used to create the image from the textures.
+        """
+        self.uv_mapping = uv_mapping
+
+        self.optimiser.minimize(self.loss_function, var_list=[self.adv_texture])
+        # clip optimised texture to ensure its elements are between 0 and 1
+        self.adv_texture.assign(tf.clip_by_value(self.adv_texture, 0, 1), name="clip optimised adv texture")
+
+    def __call__(self):
+        """Use UV mapping to create batch_seize images with both the normal and adversarial texture, then pass the
+        adversarial images as input to the victim model to get logits. UV mapping is the matrix M used to transform
+        texture x into the image with rendered object, as explained in the paper.
+
+        Returns
+        -------
+        logits_v3
+            Tensor of shape batch_size x 1000, representing the logits obtained by passing the adversarial images as
+            input to the victim model.
+        """
         # replicate textures for each adv example in batch
         std_textures = AdversarialNet.repeat(self.std_texture, cfg.batch_size)
         adv_textures = AdversarialNet.repeat(self.adv_texture, cfg.batch_size)
 
+        # check if we should add print errors, so that the adversarial texture may be used for a 3D printed object and
+        # still be effective
         if cfg.print_error:
             std_textures, adv_textures = AdversarialNet.apply_print_error(std_textures, adv_textures)
 
@@ -59,12 +82,11 @@ class AdversarialNet(tf.Module):
         # add background colour to rendered images.
         self.add_background()
 
+        # check if we apply random noise to simulate camera noise
         if cfg.photo_error:
             self.apply_photo_error()
 
         # TODO: clip or scale to [0.0, 1.0]?
-        # std_images = tf.clip_by_value(std_images, 0, 1)
-        # adv_images = tf.clip_by_value(adv_images, 0, 1)
         self.std_images, self.adv_images = self.normalize(self.std_images, self.adv_images)
 
         # Pass images through trained model and get predictions in the form of logits
@@ -75,6 +97,13 @@ class AdversarialNet(tf.Module):
         return logits_v3
 
     def loss_function(self):
+        """Perform one step of optmising the adversarial texture.
+
+        Returns
+        -------
+        loss
+            Tensor with element, representing the value of the loss function
+        """
         prediction_logits = self()
         _, self.top_k_predictions = tf.nn.top_k(tf.nn.softmax(prediction_logits), k=5)
 
@@ -82,22 +111,25 @@ class AdversarialNet(tf.Module):
         labels = tf.constant(cfg.target, dtype=tf.int64, shape=[cfg.batch_size])
         cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
             labels=labels, logits=prediction_logits)
+        # penalty term loss
         l2_loss = tf.reduce_sum(
             input_tensor=tf.square(tf.subtract(self.std_images, self.adv_images)), axis=[1, 2, 3])
 
-        # loss = tf.reduce_mean(input_tensor=cross_entropy_loss + cfg.l2_weight * l2_loss)
         loss = cross_entropy_loss + cfg.l2_weight * l2_loss
+        # reduce loss tensor to one scalar representing the average loss across the batch
         loss = tf.reduce_mean(loss)
+
         self.loss = loss
         return loss
 
-    def optimisation_step(self, uv_mapping):
-        self.uv_mapping = uv_mapping
-
-        self.optimiser.minimize(self.loss_function, var_list=[self.adv_texture])
-        self.adv_texture.assign(tf.clip_by_value(self.adv_texture, 0, 1), name="clip optimised adv texture")
-
     def get_diff(self):
+        """Gets the difference vector between the adversarial texture and the original texture.
+
+        Returns
+        -------
+        diff
+            Numpy array.
+        """
         diff_tensor = self.adv_texture - self.std_texture
         return diff_tensor.numpy()
 
@@ -143,41 +175,62 @@ class AdversarialNet(tf.Module):
     @staticmethod
     def repeat(x, times):
         """Repeat a image multiple times to generate a batch
-        Args:
-            x: A 3-D tensor with shape [height, width, 3]
-            times: How many times to repeat the 3D tensor in the first dimension,
-        Returns:
+
+        Parameters
+        ----------
+            x : 3-D tensor with shape [height, width, 3]
+                The image to be repeated.
+            times : int
+                How many times to repeat the 3D tensor in the first dimension.
+        Returns
+        -------
             A 4-D tensor with shape [times, height, size, 3]
         """
         return tf.tile(tf.expand_dims(x, 0), [times, 1, 1, 1])
 
     @staticmethod
     def transform(x, a, b):
-        """Apply transform a * x + b element-wise
+        """Apply transform a * x + b element-wise.
+
+         Parameters
+        ----------
+            x : tensor
+            a : tensor
+            b : tensor
         """
         return tf.add(tf.multiply(a, x), b)
 
     def add_background(self):
+        """Colours the background pixels of the image with a random colour.
+        """
+        # compute a mask with True values for each pixel which represents the object, and False for background pixels.
         mask = tf.reduce_all(
             input_tensor=tf.not_equal(self.uv_mapping, 0.0), axis=3, keepdims=True)
+        # generate random background colour for each image in batch
         color = tf.random.uniform(
             [cfg.batch_size, 1, 1, 3], cfg.background_min, cfg.background_max)
 
-        self.std_images = AdversarialNet.set_backgroud(self.std_images, mask, color)
-        self.adv_images = AdversarialNet.set_backgroud(self.adv_images, mask, color)
+        self.std_images = AdversarialNet.set_background(self.std_images, mask, color)
+        self.adv_images = AdversarialNet.set_background(self.adv_images, mask, color)
 
     @staticmethod
-    def set_backgroud(x, mask, color):
-        """Set background color according to a boolean mask
-        Args:
+    def set_background(x, mask, colours):
+        """Sets background color of an image according to a boolean mask.
+        
+        Parameters
+        ----------
             x: A 4-D tensor with shape [batch_size, height, size, 3]
+                The images to which a background will be added.
             mask: boolean mask with shape [batch_size, height, width, 1]
-            color: background color with shape [batch_size, 1, 1, 3]
+                The mask used for determining where are the background pixels. Has False for background pixels, 
+                True otherwise.
+            colours: tensor with shape [batch_size, 1, 1, 3].
+                The background colours for each image
         """
         mask = tf.tile(mask, [1, 1, 1, 3])
-        inv = tf.logical_not(mask)
+        inverse_mask = tf.logical_not(mask)
 
-        return tf.cast(mask, tf.float32) * x + tf.cast(inv, tf.float32) * color
+        return tf.cast(mask, tf.float32) * x + tf.cast(inverse_mask, tf.float32) * colours
 
     @staticmethod
     def normalize(x, y):
