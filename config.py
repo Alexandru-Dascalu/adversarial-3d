@@ -6,7 +6,7 @@ flags = tf.compat.v1.flags
 #    hyper parameters      #
 ############################
 
-flags.DEFINE_integer('batch_size', 12, 'batch size')
+flags.DEFINE_integer('batch_size', 8, 'batch size')
 flags.DEFINE_integer('iterations', 1000, 'iterations')
 flags.DEFINE_float('learning_rate', 0.002, 'learning rate')
 flags.DEFINE_float('l2_weight', 0.001, 'the weighting factor for l2 loss')

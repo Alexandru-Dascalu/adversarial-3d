@@ -1,4 +1,4 @@
-ModernGL==4.2.2
+ModernGL==5.6.0
 objloader==0.2.0
 Pillow==9.0.1
 pyrr==0.10.3
