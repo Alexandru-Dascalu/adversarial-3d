@@ -112,11 +112,11 @@ class Renderer(object):
 
         Parameters
         ----------
-        camera_distance : float
+        camera_distance : tuple(float, float)
             The minimum and maximum distance from camera.
-        x_translation : float
+        x_translation : tuple(float, float)
             The minimum and maximum translation along x-axis.
-        y_translation : float
+        y_translation : tuple(float, float)
             The minimum and maximum translation along y-axis.
         deflection : float between 0 and 1.
             The magnitude of the rotation, see rand_rotation_matrix.
