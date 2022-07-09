@@ -1,9 +1,10 @@
 import numpy as np
 import tensorflow as tf
 # gpu = tf.config.list_physical_devices('GPU')[0]
+# tf.config.experimental.set_memory_growth(gpu, True)
 # tf.config.set_logical_device_configuration(
 #         gpu,
-#         [tf.config.LogicalDeviceConfiguration(memory_limit=3900)])
+#         [tf.config.LogicalDeviceConfiguration(memory_limit=3800)])
 
 from PIL import Image
 from renderer import Renderer
@@ -28,7 +29,7 @@ def main():
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
     log_writer = tf.summary.create_file_writer(cfg.logdir)
 
-    with tf.device("/device:GPU:0"):
+    with tf.device("/CPU:0"):
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
         model = AdversarialNet(texture)
         for i in range(cfg.iterations):
