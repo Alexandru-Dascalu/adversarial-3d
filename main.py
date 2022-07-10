@@ -26,7 +26,10 @@ def main():
 
     # convert image to numpy array and normalise it to values between 0 and 1
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
-    log_writer = tf.summary.create_file_writer(cfg.logdir)
+
+    log_writer = None
+    if LOGGING_ENABLED:
+        log_writer = tf.summary.create_file_writer(cfg.logdir)
 
     with tf.device("/device:GPU:0"):
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
