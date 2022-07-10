@@ -18,8 +18,6 @@ flags.DEFINE_integer('target', 463, 'the label for adversarial examples')
 ############################
 
 flags.DEFINE_string('logdir', 'logdir', 'logs directory')
-flags.DEFINE_string('model_dir', 'model_dir', 'model directory')
-flags.DEFINE_string('model_url', 'http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz', 'model download link')
 flags.DEFINE_string('model_name', 'inception_v3.ckpt', 'name of checkpoint file')
 flags.DEFINE_string('image_dir', 'image_dir', 'directory for storing adversarial examples')
 
