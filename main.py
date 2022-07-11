@@ -56,7 +56,8 @@ def main():
                 adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
                 adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
 
-    log_writer.close()
+    if log_writer is not None:
+        log_writer.close()
 
 
 def log_trainning(model, writer, epoch):
