@@ -1,6 +1,5 @@
 import tensorflow as tf
 import tensorflow_addons as tfa
-import numpy as np
 
 from config import cfg
 
@@ -145,39 +144,40 @@ class AdversarialNet(tf.Module):
 
         return new_std_images, new_adv_images
 
+    def add_background(self, new_std_images, new_adv_images):
+        """Colours the background pixels of the image with a random colour.
+        """
+        # compute a mask with True values for each pixel which represents the object, and False for background pixels.
+        mask = tf.reduce_all(
+            input_tensor=tf.not_equal(self.uv_mapping, 0.0), axis=3, keepdims=True)
+        # generate random background colour for each image in batch
+        num_new_renders = new_std_images.shape[0]
+        color = tf.random.uniform(
+            [num_new_renders, 1, 1, 3], cfg.background_min, cfg.background_max)
+
+        new_std_images = AdversarialNet.set_background(new_std_images, mask, color)
+        new_adv_images = AdversarialNet.set_background(new_adv_images, mask, color)
+
+        return new_std_images, new_adv_images
+
     @staticmethod
-    def insert_new_elements_in_tensor(x, new_elements_tensor):
-        """Insert n new elements at the end of a tensor. It shifts last (tensor_size - n) elements to the left, thus
-        preserving them and over-writing the first n elements. Then it will put the n new elements at the end.
+    def set_background(x, mask, colours):
+        """Sets background color of an image according to a boolean mask.
 
         Parameters
         ----------
-        x : tensor
-            The tensor with the original data.
-        new_elements_tensor : tensor
-            A tensor with the new elements to be added.
+            x: A 4-D tensor with shape [batch_size, height, size, 3]
+                The images to which a background will be added.
+            mask: boolean mask with shape [batch_size, height, width, 1]
+                The mask used for determining where are the background pixels. Has False for background pixels,
+                True otherwise.
+            colours: tensor with shape [batch_size, 1, 1, 3].
+                The background colours for each image
         """
-        num_elements = new_elements_tensor.shape[0]
-        # get a list of tensors, each being the tensor in the ith row of the input tensor x
-        tensor_list = tf.unstack(x)
+        mask = tf.tile(mask, [1, 1, 1, 3])
+        inverse_mask = tf.logical_not(mask)
 
-        # shift elements that will be re-used to the left
-        tensor_list[:-num_elements] = tensor_list[num_elements:]
-        # place new elements at the end of the list
-        tensor_list[-num_elements:] = new_elements_tensor
-
-        return tf.stack(tensor_list)
-
-    def get_diff(self):
-        """Gets the difference vector between the adversarial texture and the original texture.
-
-        Returns
-        -------
-        diff
-            Numpy array.
-        """
-        diff_tensor = self.adv_texture - self.std_texture
-        return diff_tensor.numpy()
+        return tf.cast(mask, tf.float32) * x + tf.cast(inverse_mask, tf.float32) * colours
 
     @staticmethod
     def apply_print_error(num_new_renders, std_textures, adv_textures):
@@ -222,6 +222,29 @@ class AdversarialNet(tf.Module):
         return std_images, adv_images
 
     @staticmethod
+    def insert_new_elements_in_tensor(x, new_elements_tensor):
+        """Insert n new elements at the end of a tensor. It shifts last (tensor_size - n) elements to the left, thus
+        preserving them and over-writing the first n elements. Then it will put the n new elements at the end.
+
+        Parameters
+        ----------
+        x : tensor
+            The tensor with the original data.
+        new_elements_tensor : tensor
+            A tensor with the new elements to be added.
+        """
+        num_elements = new_elements_tensor.shape[0]
+        # get a list of tensors, each being the tensor in the ith row of the input tensor x
+        tensor_list = tf.unstack(x)
+
+        # shift elements that will be re-used to the left
+        tensor_list[:-num_elements] = tensor_list[num_elements:]
+        # place new elements at the end of the list
+        tensor_list[-num_elements:] = new_elements_tensor
+
+        return tf.stack(tensor_list)
+
+    @staticmethod
     def repeat(x, times):
         """Repeat a image multiple times to generate a batch
 
@@ -249,41 +272,6 @@ class AdversarialNet(tf.Module):
         """
         return tf.add(tf.multiply(a, x), b)
 
-    def add_background(self, new_std_images, new_adv_images):
-        """Colours the background pixels of the image with a random colour.
-        """
-        # compute a mask with True values for each pixel which represents the object, and False for background pixels.
-        mask = tf.reduce_all(
-            input_tensor=tf.not_equal(self.uv_mapping, 0.0), axis=3, keepdims=True)
-        # generate random background colour for each image in batch
-        num_new_renders = new_std_images.shape[0]
-        color = tf.random.uniform(
-            [num_new_renders, 1, 1, 3], cfg.background_min, cfg.background_max)
-
-        new_std_images = AdversarialNet.set_background(new_std_images, mask, color)
-        new_adv_images = AdversarialNet.set_background(new_adv_images, mask, color)
-
-        return new_std_images, new_adv_images
-
-    @staticmethod
-    def set_background(x, mask, colours):
-        """Sets background color of an image according to a boolean mask.
-        
-        Parameters
-        ----------
-            x: A 4-D tensor with shape [batch_size, height, size, 3]
-                The images to which a background will be added.
-            mask: boolean mask with shape [batch_size, height, width, 1]
-                The mask used for determining where are the background pixels. Has False for background pixels, 
-                True otherwise.
-            colours: tensor with shape [batch_size, 1, 1, 3].
-                The background colours for each image
-        """
-        mask = tf.tile(mask, [1, 1, 1, 3])
-        inverse_mask = tf.logical_not(mask)
-
-        return tf.cast(mask, tf.float32) * x + tf.cast(inverse_mask, tf.float32) * colours
-
     @staticmethod
     def normalize(x, y):
         minimum = tf.minimum(tf.reduce_min(input_tensor=x, axis=[1, 2], keepdims=True),
@@ -295,3 +283,14 @@ class AdversarialNet(tf.Module):
         maximum = tf.maximum(maximum, 1)
 
         return (x - minimum) / (maximum - minimum), (y - minimum) / (maximum - minimum)
+
+    def get_diff(self):
+        """Gets the difference vector between the adversarial texture and the original texture.
+
+        Returns
+        -------
+        diff
+            Numpy array.
+        """
+        diff_tensor = self.adv_texture - self.std_texture
+        return diff_tensor.numpy()
