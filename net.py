@@ -23,12 +23,13 @@ class AdversarialNet(tf.Module):
         self.adv_texture = tf.Variable(self.std_texture, trainable=True, name='adv_texture')
 
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
-        batch_tensor_size = (cfg.batch_size,) + self.std_texture.shape
+        batch_tensor_size = (cfg.batch_size, 299, 299, 3)
         # with a batch size of 12, each of these take up around 600 MB
-        self.std_images = np.zeros(batch_tensor_size, dtype=np.float32)
-        self.adv_images = np.zeros(batch_tensor_size, dtype=np.float32)
+        self.std_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
+        self.adv_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
 
-        self.uv_mapping = []
+        self.uv_mapping = tf.zeros((1,))
+        self.logits = tf.zeros((cfg.batch_size, 1000))
         self.top_k_predictions = []
         self.loss = 0
 
@@ -55,6 +56,32 @@ class AdversarialNet(tf.Module):
         # clip optimised texture to ensure its elements are between 0 and 1
         self.adv_texture.assign(tf.clip_by_value(self.adv_texture, 0, 1), name="clip optimised adv texture")
 
+    def loss_function(self):
+        """Perform one step of optmising the adversarial texture.
+
+        Returns
+        -------
+        loss
+            Tensor with element, representing the value of the loss function
+        """
+        self()
+        _, self.top_k_predictions = tf.nn.top_k(tf.nn.softmax(self.logits), k=5)
+
+        # Calculate cross entropy loss for predictions
+        labels = tf.constant(cfg.target, dtype=tf.int64, shape=[cfg.batch_size])
+        cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+            labels=labels, logits=self.logits)
+        # penalty term loss
+        l2_loss = tf.reduce_sum(
+            input_tensor=tf.square(tf.subtract(self.std_images, self.adv_images)), axis=[1, 2, 3])
+
+        loss = cross_entropy_loss + cfg.l2_weight * l2_loss
+        # reduce loss tensor to one scalar representing the average loss across the batch
+        loss = tf.reduce_mean(loss)
+
+        self.loss = loss
+        return loss
+
     def __call__(self):
         """Use UV mapping to create batch_seize images with both the normal and adversarial texture, then pass the
         adversarial images as input to the victim model to get logits. UV mapping is the matrix M used to transform
@@ -66,61 +93,80 @@ class AdversarialNet(tf.Module):
             Tensor of shape batch_size x 1000, representing the logits obtained by passing the adversarial images as
             input to the victim model.
         """
+        # for the first iteration, we have a whole new batch of renders, for other iterations we have only around 20%
+        # new renders
+        new_std_images, new_adv_images = self.create_images_from_texture()
+
+        # add background colour to rendered images.
+        new_std_images, new_adv_images = self.add_background(new_std_images, new_adv_images)
+
+        # check if we apply random noise to simulate camera noise
+        if cfg.photo_error:
+            new_std_images, new_adv_images = AdversarialNet.apply_photo_error(self.uv_mapping.shape[0], new_std_images,
+                                                                              new_adv_images)
+
+        # TODO: clip or scale to [0.0, 1.0]?
+        new_std_images, new_adv_images = AdversarialNet.normalize(new_std_images, new_adv_images)
+        # Pass images through trained model and get predictions in the form of logits
+        # why scale the images?
+        scaled_images = 2.0 * new_adv_images - 1.0
+        new_logits = self.victim_model(scaled_images)
+
+        # add images and prediction logits for the new renders to the whole batch
+        self.std_images = AdversarialNet.insert_new_elements_in_tensor(self.std_images, new_std_images)
+        self.adv_images = AdversarialNet.insert_new_elements_in_tensor(self.adv_images, new_adv_images)
+        self.logits = AdversarialNet.insert_new_elements_in_tensor(self.logits, new_logits)
+
+    def create_images_from_texture(self):
+        """Create standard and adversarial images from the respective textures using the UV mappings of the new renders.
+
+        Returns
+        -------
+        new_std_images
+            Tensor of shape num_new_renders x 299 x 299 x 3, representing the images of the new renders with the normal
+            texture.
+        new_adv_images
+            Tensor of shape num_new_renders x 299 x 299 x 3, representing the images of the new renders with the
+            adversarial texture.
+        """
+        num_new_renders = self.uv_mapping.shape[0]
         # replicate textures for each adv example in batch
-        std_textures = AdversarialNet.repeat(self.std_texture, cfg.batch_size)
-        adv_textures = AdversarialNet.repeat(self.adv_texture, cfg.batch_size)
+        std_textures = AdversarialNet.repeat(self.std_texture, num_new_renders)
+        adv_textures = AdversarialNet.repeat(self.adv_texture, num_new_renders)
 
         # check if we should add print errors, so that the adversarial texture may be used for a 3D printed object and
         # still be effective
         if cfg.print_error:
-            std_textures, adv_textures = AdversarialNet.apply_print_error(std_textures, adv_textures)
+            std_textures, adv_textures = AdversarialNet.apply_print_error(num_new_renders, std_textures, adv_textures)
 
         # use UV mapping to create images of different rendered objects by sampling from the texture
-        self.std_images = tfa.image.resampler(std_textures, self.uv_mapping)
-        self.adv_images = tfa.image.resampler(adv_textures, self.uv_mapping)
+        new_std_images = tfa.image.resampler(std_textures, self.uv_mapping)
+        new_adv_images = tfa.image.resampler(adv_textures, self.uv_mapping)
 
-        # add background colour to rendered images.
-        self.add_background()
+        return new_std_images, new_adv_images
 
-        # check if we apply random noise to simulate camera noise
-        if cfg.photo_error:
-            self.apply_photo_error()
+    @staticmethod
+    def insert_new_elements_in_tensor(x, new_elements_tensor):
+        """Insert n new elements at the end of a tensor. It shifts last (tensor_size - n) elements to the left, thus
+        preserving them and over-writing the first n elements. Then it will put the n new elements at the end.
 
-        # TODO: clip or scale to [0.0, 1.0]?
-        self.std_images, self.adv_images = self.normalize(self.std_images, self.adv_images)
-
-        # Pass images through trained model and get predictions in the form of logits
-        # why scale the images?
-        scaled_images = 2.0 * self.adv_images - 1.0
-        logits_v3 = self.victim_model(scaled_images)
-
-        return logits_v3
-
-    def loss_function(self):
-        """Perform one step of optmising the adversarial texture.
-
-        Returns
-        -------
-        loss
-            Tensor with element, representing the value of the loss function
+        Parameters
+        ----------
+        x : tensor
+            The tensor with the original data.
+        new_elements_tensor : tensor
+            A tensor with the new elements to be added.
         """
-        prediction_logits = self()
-        _, self.top_k_predictions = tf.nn.top_k(tf.nn.softmax(prediction_logits), k=5)
+        num_elements = new_elements_tensor.shape[0]
+        # get a list of tensors, each being the tensor in the ith row of the input tensor x
+        tensor_list = tf.unstack(x)
 
-        # Calculate cross entropy loss for predictions
-        labels = tf.constant(cfg.target, dtype=tf.int64, shape=[cfg.batch_size])
-        cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-            labels=labels, logits=prediction_logits)
-        # penalty term loss
-        l2_loss = tf.reduce_sum(
-            input_tensor=tf.square(tf.subtract(self.std_images, self.adv_images)), axis=[1, 2, 3])
+        # shift elements that will be re-used to the left
+        tensor_list[:-num_elements] = tensor_list[num_elements:]
+        # place new elements at the end of the list
+        tensor_list[-num_elements:] = new_elements_tensor
 
-        loss = cross_entropy_loss + cfg.l2_weight * l2_loss
-        # reduce loss tensor to one scalar representing the average loss across the batch
-        loss = tf.reduce_mean(loss)
-
-        self.loss = loss
-        return loss
+        return tf.stack(tensor_list)
 
     def get_diff(self):
         """Gets the difference vector between the adversarial texture and the original texture.
@@ -134,14 +180,14 @@ class AdversarialNet(tf.Module):
         return diff_tensor.numpy()
 
     @staticmethod
-    def apply_print_error(std_textures, adv_textures):
+    def apply_print_error(num_new_renders, std_textures, adv_textures):
         multiplier = tf.random.uniform(
-            [cfg.batch_size, 1, 1, 3],
+            [num_new_renders, 1, 1, 3],
             cfg.channel_mult_min,
             cfg.channel_mult_max
         )
         addend = tf.random.uniform(
-            [cfg.batch_size, 1, 1, 3],
+            [num_new_renders, 1, 1, 3],
             cfg.channel_add_min,
             cfg.channel_add_max
         )
@@ -150,27 +196,30 @@ class AdversarialNet(tf.Module):
 
         return std_textures, adv_textures
 
-    def apply_photo_error(self):
+    @staticmethod
+    def apply_photo_error(num_new_renders, std_images, adv_images):
         multiplier = tf.random.uniform(
-            [cfg.batch_size, 1, 1, 1],
+            [num_new_renders, 1, 1, 1],
             cfg.light_mult_min,
             cfg.light_mult_max
         )
         addend = tf.random.uniform(
-            [cfg.batch_size, 1, 1, 1],
+            [num_new_renders, 1, 1, 1],
             cfg.light_add_min,
             cfg.light_add_max
         )
-        self.std_images = AdversarialNet.transform(self.std_images, multiplier, addend)
-        self.adv_images = AdversarialNet.transform(self.adv_images, multiplier, addend)
+        std_images = AdversarialNet.transform(std_images, multiplier, addend)
+        adv_images = AdversarialNet.transform(adv_images, multiplier, addend)
 
         gaussian_noise = tf.random.truncated_normal(
-            tf.shape(input=self.std_images),
+            tf.shape(input=std_images),
             stddev=tf.random.uniform([1], maxval=cfg.stddev)
         )
 
-        self.std_images += gaussian_noise
-        self.adv_images += gaussian_noise
+        std_images += gaussian_noise
+        adv_images += gaussian_noise
+
+        return std_images, adv_images
 
     @staticmethod
     def repeat(x, times):
@@ -200,18 +249,21 @@ class AdversarialNet(tf.Module):
         """
         return tf.add(tf.multiply(a, x), b)
 
-    def add_background(self):
+    def add_background(self, new_std_images, new_adv_images):
         """Colours the background pixels of the image with a random colour.
         """
         # compute a mask with True values for each pixel which represents the object, and False for background pixels.
         mask = tf.reduce_all(
             input_tensor=tf.not_equal(self.uv_mapping, 0.0), axis=3, keepdims=True)
         # generate random background colour for each image in batch
+        num_new_renders = new_std_images.shape[0]
         color = tf.random.uniform(
-            [cfg.batch_size, 1, 1, 3], cfg.background_min, cfg.background_max)
+            [num_new_renders, 1, 1, 3], cfg.background_min, cfg.background_max)
 
-        self.std_images = AdversarialNet.set_background(self.std_images, mask, color)
-        self.adv_images = AdversarialNet.set_background(self.adv_images, mask, color)
+        new_std_images = AdversarialNet.set_background(new_std_images, mask, color)
+        new_adv_images = AdversarialNet.set_background(new_adv_images, mask, color)
+
+        return new_std_images, new_adv_images
 
     @staticmethod
     def set_background(x, mask, colours):

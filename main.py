@@ -36,7 +36,12 @@ def main():
         model = AdversarialNet(texture)
         for i in range(cfg.iterations):
             # UV mapping is a numpy array of shape batch_size x texture_width x texture_height x 2
-            uv = renderer.render(cfg.batch_size)
+            if i == 0:
+                uv = renderer.render(cfg.batch_size)
+            else:
+                num_new_renders = int(np.ceil(cfg.batch_size * (1 - cfg.batch_reuse_ratio)))
+                uv = renderer.render(num_new_renders)
+
             # de-normalise UV mapping so it has values from 0 to texture width-1 in uv[...,0] and 0 to height-1 in
             # uv[...,1], so 0 to 2047 by default.
             uv = uv * np.asarray([width - 1, height - 1], dtype=np.float32)
