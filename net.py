@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow_addons as tfa
+import skimage.color
 
 from config import cfg
 
@@ -70,9 +71,13 @@ class AdversarialNet(tf.Module):
         labels = tf.constant(cfg.target, dtype=tf.int64, shape=[cfg.batch_size])
         cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
             labels=labels, logits=self.logits)
+
+        lab_std_images = tf.convert_to_tensor(AdversarialNet.get_normalised_lab_image(self.std_images.numpy()))
+        lab_adv_images = tf.convert_to_tensor(AdversarialNet.get_normalised_lab_image(self.adv_images.numpy()))
+
         # penalty term loss
-        l2_loss = tf.reduce_sum(
-            input_tensor=tf.square(tf.subtract(self.std_images, self.adv_images)), axis=[1, 2, 3])
+        l2_loss = tf.sqrt(tf.reduce_sum(
+            input_tensor=tf.square(tf.subtract(lab_std_images, lab_adv_images)), axis=[1, 2, 3]))
 
         loss = cross_entropy_loss + cfg.l2_weight * l2_loss
         # reduce loss tensor to one scalar representing the average loss across the batch
@@ -88,9 +93,8 @@ class AdversarialNet(tf.Module):
 
         Returns
         -------
-        logits_v3
-            Tensor of shape batch_size x 1000, representing the logits obtained by passing the adversarial images as
-            input to the victim model.
+        Tensor of shape batch_size x 1000, representing the logits obtained by passing the adversarial images as
+        input to the victim model.
         """
         # for the first iteration, we have a whole new batch of renders, for other iterations we have only around 20%
         # new renders
@@ -121,12 +125,9 @@ class AdversarialNet(tf.Module):
 
         Returns
         -------
-        new_std_images
-            Tensor of shape num_new_renders x 299 x 299 x 3, representing the images of the new renders with the normal
-            texture.
-        new_adv_images
-            Tensor of shape num_new_renders x 299 x 299 x 3, representing the images of the new renders with the
-            adversarial texture.
+        Two tensors. The first one is of shape num_new_renders x 299 x 299 x 3, representing the images of the new
+        renders with the normal texture. The second is of shape num_new_renders x 299 x 299 x 3, representing the images
+        of the new renders with the adversarial texture.
         """
         num_new_renders = self.uv_mapping.shape[0]
         # replicate textures for each adv example in batch
@@ -284,13 +285,39 @@ class AdversarialNet(tf.Module):
 
         return (x - minimum) / (maximum - minimum), (y - minimum) / (maximum - minimum)
 
+    @staticmethod
+    def get_normalised_lab_image(rgb_images):
+        """Turn a numpy array representing a normalised RGB image into an equivalent normalised image in the LAB
+        colour space.
+
+         Parameters
+        ----------
+        rgb_images : 4D numpy array of size batch_size x 299 x 299 x 3
+            The image which we want to convert to LAB space. Each value in it must be between 0 and 1.
+        Returns
+        -------
+            A 4-D numpy array with shape [batch_size, 299, 299, 3] and with values between 0 and 1.
+        """
+        assert rgb_images.shape[1] == 299
+        assert rgb_images.shape[2] == 299
+        assert rgb_images.shape[3] == 3
+
+        lab_images = skimage.color.rgb2lab(rgb_images)
+
+        # normalise the lightness channel, which has values between 0 and 1
+        lab_images[..., 0] = lab_images[..., 0] / 100
+        # normalise the greeness-redness and blueness-yellowness channels, which normally are between -128 and 127
+        lab_images[..., 1] = (lab_images[..., 1] + 128) / 255
+        lab_images[..., 2] = (lab_images[..., 2] + 128) / 255
+
+        return lab_images
+
     def get_diff(self):
         """Gets the difference vector between the adversarial texture and the original texture.
 
         Returns
         -------
-        diff
-            Numpy array.
+            Numpy array representing the difference vector.
         """
         diff_tensor = self.adv_texture - self.std_texture
         return diff_tensor.numpy()
