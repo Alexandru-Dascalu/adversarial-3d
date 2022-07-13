@@ -1,4 +1,4 @@
-# adverasrial-3d
+# adversarial-3d
 
 A TensorFlow implementation for [Synthesizing Robust Adversarial Examples](https://arxiv.org/abs/1707.07397).
 
