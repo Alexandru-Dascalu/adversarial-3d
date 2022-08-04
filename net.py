@@ -23,11 +23,11 @@ class AdversarialNet(tf.Module):
         self.adv_texture = tf.Variable(self.std_texture, trainable=True, name='adv_texture')
 
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
-        batch_tensor_size = (cfg.batch_size, 299, 299, 3)
-        # with a batch size of 12, each of these take up around 600 MB
-        self.std_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
-        self.adv_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
-
+        # with a batch size of 12, each of these take up around 13 MB once the images are actually rendered, if the
+        # resolution is just 299x299
+        self.std_images = None
+        self.adv_images = None
+        
         self.uv_mapping = tf.zeros((1,))
         self.logits = tf.zeros((cfg.batch_size, 1000))
         self.top_k_predictions = []
@@ -130,20 +130,37 @@ class AdversarialNet(tf.Module):
         of the new renders with the adversarial texture.
         """
         num_new_renders = self.uv_mapping.shape[0]
-        # replicate textures for each adv example in batch
-        std_textures = AdversarialNet.repeat(self.std_texture, num_new_renders)
-        adv_textures = AdversarialNet.repeat(self.adv_texture, num_new_renders)
-
-        # check if we should add print errors, so that the adversarial texture may be used for a 3D printed object and
-        # still be effective
-        if cfg.print_error:
-            std_textures, adv_textures = AdversarialNet.apply_print_error(num_new_renders, std_textures, adv_textures)
-
-        # use UV mapping to create images of different rendered objects by sampling from the texture
-        new_std_images = tfa.image.resampler(std_textures, self.uv_mapping)
-        new_adv_images = tfa.image.resampler(adv_textures, self.uv_mapping)
+        new_std_images = None
+        new_adv_images = None
+        
+        # create each image in batch from texture one at a time. We do this instead of all at once so that we need less
+        # memory (a 12 x 2048 x 2048 x 3 tensor is 600 MB, and we would create multiple ones)
+        for i in range(num_new_renders):
+            if new_std_images is None:
+              new_std_images, new_adv_images = self.create_image(i)
+            else:
+              new_std_image, new_adv_image = self.create_image(i)
+              new_std_images = tf.concat([new_std_images, new_std_image], axis=0)
+              new_adv_images = tf.concat([new_adv_images, new_adv_image], axis=0)
 
         return new_std_images, new_adv_images
+        
+    def create_image(self, index_in_batch):
+        # check if we should add print errors, so that the adversarial texture may be used for a 3D printed object
+        # and still be effective
+        if cfg.print_error:
+            std_texture, adv_texture = AdversarialNet.apply_print_error(self.std_texture, self.adv_texture)
+
+        # Get UV map for this rendering in the batch. tfa.image.resampler requires the first dimension of UV map to be
+        # batch size, so we add an extra dimension with one element
+        image_uv_map = np.expand_dims(self.uv_mapping[index_in_batch], axis=0)
+
+        # use UV mapping to create an images corresponding to an individual render by sampling from the texture
+        # Resulting tensors are of shape 1 x image_width x image_height x 3
+        std_image = tfa.image.resampler(std_texture, image_uv_map)
+        adv_image = tfa.image.resampler(adv_texture, image_uv_map)
+
+        return std_image, adv_image
 
     def add_background(self, new_std_images, new_adv_images):
         """Colours the background pixels of the image with a random colour.
@@ -180,22 +197,24 @@ class AdversarialNet(tf.Module):
 
         return tf.cast(mask, tf.float32) * x + tf.cast(inverse_mask, tf.float32) * colours
 
+
+
     @staticmethod
-    def apply_print_error(num_new_renders, std_textures, adv_textures):
+    def apply_print_error(std_texture, adv_texture):
         multiplier = tf.random.uniform(
-            [num_new_renders, 1, 1, 3],
+            [1, 1, 1, 3],
             cfg.channel_mult_min,
             cfg.channel_mult_max
         )
         addend = tf.random.uniform(
-            [num_new_renders, 1, 1, 3],
+            [1, 1, 1, 3],
             cfg.channel_add_min,
             cfg.channel_add_max
         )
-        std_textures = AdversarialNet.transform(std_textures, multiplier, addend)
-        adv_textures = AdversarialNet.transform(adv_textures, multiplier, addend)
+        std_texture = AdversarialNet.transform(std_texture, multiplier, addend)
+        adv_texture = AdversarialNet.transform(adv_texture, multiplier, addend)
 
-        return std_textures, adv_textures
+        return std_texture, adv_texture
 
     @staticmethod
     def apply_photo_error(num_new_renders, std_images, adv_images):
