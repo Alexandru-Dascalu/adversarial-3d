@@ -25,8 +25,8 @@ class AdversarialNet(tf.Module):
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
         # with a batch size of 12, each of these take up around 13 MB once the images are actually rendered, if the
         # resolution is just 299x299
-        self.std_images = np.zeros((1,), dtype=np.float32)
-        self.adv_images = np.zeros((1,), dtype=np.float32)
+        self.std_images = None
+        self.adv_images = None
 
         self.uv_mapping = tf.constant(0)
         self.top_k_predictions = []
@@ -66,6 +66,7 @@ class AdversarialNet(tf.Module):
             Tensor of shape batch_size x 1000, representing the logits obtained by passing the adversarial images as
             input to the victim model.
         """
+        # discard the images generated in the previous iteration
         self.std_images = None
         self.adv_images = None
 

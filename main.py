@@ -29,7 +29,7 @@ def main():
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
     log_writer = tf.summary.create_file_writer(cfg.logdir)
 
-    with tf.device("/CPU:0"):
+    with tf.device("/GPU:0"):
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
         model = AdversarialNet(texture)
         for i in range(cfg.iterations):
