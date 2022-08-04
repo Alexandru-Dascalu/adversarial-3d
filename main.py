@@ -1,10 +1,10 @@
 import numpy as np
 import tensorflow as tf
-# gpu = tf.config.list_physical_devices('GPU')[0]
-# tf.config.experimental.set_memory_growth(gpu, True)
-# tf.config.set_logical_device_configuration(
-#         gpu,
-#         [tf.config.LogicalDeviceConfiguration(memory_limit=3800)])
+gpu = tf.config.list_physical_devices('GPU')[0]
+tf.config.experimental.set_memory_growth(gpu, True)
+tf.config.set_logical_device_configuration(
+        gpu,
+        [tf.config.LogicalDeviceConfiguration(memory_limit=3800)])
 
 from PIL import Image
 from renderer import Renderer
@@ -41,6 +41,7 @@ def main():
 
             # optimise adversarial texture
             model.optimisation_step(uv)
+            print("Epoch: {}".format(i))
             print('Loss: {}'.format(model.loss))
             print('Diff: {}'.format(model.get_diff().sum()))
             print('Prediction:\n{}'.format(model.top_k_predictions))

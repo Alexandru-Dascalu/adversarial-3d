@@ -66,9 +66,8 @@ class AdversarialNet(tf.Module):
             Tensor of shape batch_size x 1000, representing the logits obtained by passing the adversarial images as
             input to the victim model.
         """
-        image_shape = self.uv_mapping.shape[:-1] + (3,)
-        self.std_images = np.zeros(image_shape, np.float32)
-        self.adv_images = np.zeros(image_shape, np.float32)
+        self.std_images = None
+        self.adv_images = None
 
         # create each image in batch from texture one at a time. We do this instead of all at once so that we need less
         # memory (a 12 x 2048 x 2048 x 3 tensor is 600 MB, and we would create multiple ones)
@@ -145,8 +144,12 @@ class AdversarialNet(tf.Module):
         adv_image = tfa.image.resampler(adv_texture, image_uv_map)
 
         # the two tensors are 4D, with only one 3D tensor in the first dimension
-        self.std_images[index_in_batch] = std_image[0]
-        self.adv_images[index_in_batch] = adv_image[0]
+        if self.std_images is None:
+            self.std_images = std_image
+            self.adv_images = adv_image
+        else:
+            self.std_images = tf.concat([self.std_images, std_image], axis=0)
+            self.adv_images = tf.concat([self.adv_images, adv_image], axis=0)
 
     @staticmethod
     def apply_print_error(std_texture, adv_texture):
