@@ -6,7 +6,8 @@ flags = tf.compat.v1.flags
 #    hyper parameters      #
 ############################
 
-flags.DEFINE_integer('batch_size', 14, 'batch size')
+flags.DEFINE_integer('batch_size', 8, 'batch size')
+flags.DEFINE_float('batch_reuse_ratio', 0.8, 'percentage of batch samples that are reused in the next iteration')
 flags.DEFINE_integer('iterations', 1000, 'iterations')
 flags.DEFINE_float('learning_rate', 0.002, 'learning rate')
 flags.DEFINE_float('l2_weight', 0.001, 'the weighting factor for l2 loss')
@@ -18,8 +19,6 @@ flags.DEFINE_integer('target', 463, 'the label for adversarial examples')
 ############################
 
 flags.DEFINE_string('logdir', 'logdir', 'logs directory')
-flags.DEFINE_string('model_dir', 'model_dir', 'model directory')
-flags.DEFINE_string('model_url', 'http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz', 'model download link')
 flags.DEFINE_string('model_name', 'inception_v3.ckpt', 'name of checkpoint file')
 flags.DEFINE_string('image_dir', 'image_dir', 'directory for storing adversarial examples')
 

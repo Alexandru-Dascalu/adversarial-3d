@@ -29,7 +29,10 @@ def main():
 
     # convert image to numpy array and normalise it to values between 0 and 1
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
-    log_writer = tf.summary.create_file_writer(cfg.logdir)
+
+    log_writer = None
+    if LOGGING_ENABLED:
+        log_writer = tf.summary.create_file_writer(cfg.logdir)
 
     with tf.device("/GPU:0"):
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
@@ -38,7 +41,12 @@ def main():
         tfr_history = []
         for i in range(cfg.iterations):
             # UV mapping is a numpy array of shape batch_size x texture_width x texture_height x 2
-            uv = renderer.render(cfg.batch_size)
+            if i == 0:
+                uv = renderer.render(cfg.batch_size)
+            else:
+                num_new_renders = int(np.ceil(cfg.batch_size * (1 - cfg.batch_reuse_ratio)))
+                uv = renderer.render(num_new_renders)
+
             # de-normalise UV mapping so it has values from 0 to texture width-1 in uv[...,0] and 0 to height-1 in
             # uv[...,1], so 0 to 2047 by default.
             uv = uv * np.asarray([width - 1, height - 1], dtype=np.float32)
@@ -60,7 +68,8 @@ def main():
 
         plot_training_history(loss_history, tfr_history)
 
-    log_writer.close()
+    if log_writer is not None:
+        log_writer.close()
 
 
 def log_training_to_console(model, step):
