@@ -31,7 +31,7 @@ def main():
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0
 
     log_writer = None
-    if LOGGING_ENABLED:
+    if FILE_LOGGING_ENABLED:
         log_writer = tf.summary.create_file_writer(cfg.logdir)
 
     with tf.device("/GPU:0"):

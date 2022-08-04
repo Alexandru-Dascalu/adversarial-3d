@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow_addons as tfa
+import numpy as np
 import skimage.color
 
 from config import cfg
@@ -25,9 +26,10 @@ class AdversarialNet(tf.Module):
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
         # with a batch size of 12, each of these take up around 13 MB once the images are actually rendered, if the
         # resolution is just 299x299
-        self.std_images = None
-        self.adv_images = None
-        
+        batch_tensor_size = (cfg.batch_size, 299, 299, 3)
+        self.std_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
+        self.adv_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
+
         self.uv_mapping = tf.zeros((1,))
         self.logits = tf.zeros((cfg.batch_size, 1000))
         self.top_k_predictions = []
@@ -98,7 +100,16 @@ class AdversarialNet(tf.Module):
         """
         # for the first iteration, we have a whole new batch of renders, for other iterations we have only around 20%
         # new renders
-        new_std_images, new_adv_images = self.create_images_from_texture()
+        num_new_renders = self.uv_mapping.shape[0]
+
+        # create each image in batch from texture one at a time. We do this instead of all at once so that we need less
+        # memory (a 12 x 2048 x 2048 x 3 tensor is 600 MB, and we would create multiple ones). We make the first image
+        # outside of the loop to initialise the list of new images, and to avoid putting an if statement in the loop
+        new_std_images, new_adv_images = self.create_image(self.uv_mapping[0])
+        for i in range(num_new_renders - 1):
+            std_image, adv_image = self.create_image(self.uv_mapping[i])
+            new_std_images = tf.concat([new_std_images, std_image], axis=0)
+            new_adv_images = tf.concat([new_adv_images, adv_image], axis=0)
 
         # add background colour to rendered images.
         new_std_images, new_adv_images = self.add_background(new_std_images, new_adv_images)
@@ -120,40 +131,35 @@ class AdversarialNet(tf.Module):
         self.adv_images = AdversarialNet.insert_new_elements_in_tensor(self.adv_images, new_adv_images)
         self.logits = AdversarialNet.insert_new_elements_in_tensor(self.logits, new_logits)
 
-    def create_images_from_texture(self):
-        """Create standard and adversarial images from the respective textures using the UV mappings of the new renders.
+    def create_image(self, uv_mapping):
+        """Create standard and adversarial images from the respective textures using the given UV mapping.
+
+        Parameters
+        ----------
+        uv_mapping : numpy array
+            A numpy array with shape [image_height, image_width, 2]. Represents the UV mappings for an
+            image in the batch. This mappign is used to create the images from the textures.
 
         Returns
         -------
-        Two tensors. The first one is of shape num_new_renders x 299 x 299 x 3, representing the images of the new
-        renders with the normal texture. The second is of shape num_new_renders x 299 x 299 x 3, representing the images
-        of the new renders with the adversarial texture.
+        tuple
+            Two tensors. The first one is of shape num_new_renders x 299 x 299 x 3, representing the images of the new
+            renders with the normal texture. The second is of shape num_new_renders x 299 x 299 x 3, representing the images
+            of the new renders with the adversarial texture.
         """
-        num_new_renders = self.uv_mapping.shape[0]
-        new_std_images = None
-        new_adv_images = None
-        
-        # create each image in batch from texture one at a time. We do this instead of all at once so that we need less
-        # memory (a 12 x 2048 x 2048 x 3 tensor is 600 MB, and we would create multiple ones)
-        for i in range(num_new_renders):
-            if new_std_images is None:
-              new_std_images, new_adv_images = self.create_image(i)
-            else:
-              new_std_image, new_adv_image = self.create_image(i)
-              new_std_images = tf.concat([new_std_images, new_std_image], axis=0)
-              new_adv_images = tf.concat([new_adv_images, new_adv_image], axis=0)
-
-        return new_std_images, new_adv_images
-        
-    def create_image(self, index_in_batch):
         # check if we should add print errors, so that the adversarial texture may be used for a 3D printed object
         # and still be effective
         if cfg.print_error:
             std_texture, adv_texture = AdversarialNet.apply_print_error(self.std_texture, self.adv_texture)
+        else:
+            # tfa.resampler requires input to be in shape batch_size x height x width x channels, so we insert a new
+            # dimension
+            std_texture = tf.expand_dims(self.std_texture, axis=0)
+            adv_texture = tf.expand_dims(self.adv_texture, axis=0)
 
         # Get UV map for this rendering in the batch. tfa.image.resampler requires the first dimension of UV map to be
         # batch size, so we add an extra dimension with one element
-        image_uv_map = np.expand_dims(self.uv_mapping[index_in_batch], axis=0)
+        image_uv_map = np.expand_dims(uv_mapping, axis=0)
 
         # use UV mapping to create an images corresponding to an individual render by sampling from the texture
         # Resulting tensors are of shape 1 x image_width x image_height x 3
@@ -196,8 +202,6 @@ class AdversarialNet(tf.Module):
         inverse_mask = tf.logical_not(mask)
 
         return tf.cast(mask, tf.float32) * x + tf.cast(inverse_mask, tf.float32) * colours
-
-
 
     @staticmethod
     def apply_print_error(std_texture, adv_texture):
