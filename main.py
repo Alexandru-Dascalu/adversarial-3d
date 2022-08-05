@@ -34,7 +34,7 @@ def main():
     if FILE_LOGGING_ENABLED:
         log_writer = tf.summary.create_file_writer(cfg.logdir)
 
-    with tf.device("/GPU:0"):
+    with tf.device("/CPU:0"):
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
         model = AdversarialNet(texture)
         loss_history = []
@@ -47,7 +47,7 @@ def main():
                 num_new_renders = int(np.ceil(cfg.batch_size * (1 - cfg.batch_reuse_ratio)))
                 uv = renderer.render(num_new_renders)
 
-            # de-normalise UV mapping so it has values from 0 to texture width-1 in uv[...,0] and 0 to height-1 in
+            # de-normalise UV mapping, so it has values from 0 to texture width-1 in uv[...,0] and 0 to height-1 in
             # uv[...,1], so 0 to 2047 by default.
             uv = uv * np.asarray([width - 1, height - 1], dtype=np.float32)
 
