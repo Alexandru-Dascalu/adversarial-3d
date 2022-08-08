@@ -3,6 +3,7 @@
 # Folder for saving adversarial textures
 image_dir/
 renders/
+evaluation_images/
 
 ### OSX ###
 *.DS_Store
