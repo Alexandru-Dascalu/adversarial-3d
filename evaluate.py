@@ -25,6 +25,7 @@ class Example(mglw.WindowConfig):
     def run(cls):
         mglw.run_window_config(cls)
 
+
 class LoadingOBJ(Example):
     title = "Loading OBJ"
     gl_version = (3, 3)
@@ -65,7 +66,6 @@ class LoadingOBJ(Example):
 
                 uniform sampler2D Texture;
                 uniform vec4 Color;
-                uniform vec3 Light;
 
                 in vec3 v_vert;
                 in vec3 v_norm;
@@ -74,14 +74,6 @@ class LoadingOBJ(Example):
                 out vec4 f_color;
 
                 void main() {
-                    float lum = dot(normalize(v_norm), normalize(v_vert - Light));
-                    lum = acos(lum) / 3.14159265;
-                    lum = clamp(lum, 0.0, 1.0);
-                    lum = lum * lum;
-                    lum = smoothstep(0.0, 1.0, lum);
-                    lum *= smoothstep(0.0, 80.0, v_vert.z) * 0.3 + 0.7;
-                    lum = lum * 0.8 + 0.2;
-
                     vec3 color = texture(Texture, v_text).rgb;
                     color = color * (1.0 - Color.a) + Color.rgb * Color.a;
                     f_color = vec4(color, 1.0);
@@ -89,7 +81,6 @@ class LoadingOBJ(Example):
             ''',
         )
 
-        #self.light = self.prog['Light']
         self.color = self.prog['Color']
         self.mvp = self.prog['Mvp']
 
@@ -113,7 +104,7 @@ class LoadingOBJ(Example):
             ))
             proj = Matrix44.perspective_projection(45.0, self.aspect_ratio, 0.1, 1000.0)
             lookat = Matrix44.look_at(
-                (0.1, 0, np.random.uniform(2.5, 3.0)),
+                (0.1, 0, np.random.uniform(1.8, 2.3)),
                 (0, 0, 0),
                 (0.0, 1.0, 0.0),
             )
@@ -121,8 +112,7 @@ class LoadingOBJ(Example):
             self.fbo.use()
             self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 
-            #self.light.value = (0.1, 0, 10.0)
-            self.color.value = (1.0, 1.0, 1.0, 0.25)
+            self.color.value = (1.0, 1.0, 1.0, 0.0)
             self.mvp.write((proj * lookat * translation * rotation).astype('f4'))
 
             self.texture.use()
