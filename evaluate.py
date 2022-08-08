@@ -9,27 +9,14 @@ from PIL import Image
 import renderer
 
 
-class Example(mglw.WindowConfig):
+class LoadingOBJ(mglw.WindowConfig):
     gl_version = (3, 3)
-    title = "ModernGL Example"
+    title = "Loading OBJ"
     window_size = (1199, 1199)
     aspect_ratio = 1
     resizable = True
 
     resource_dir = os.path.normpath(os.path.join(__file__, '../'))
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    @classmethod
-    def run(cls):
-        mglw.run_window_config(cls)
-
-
-class LoadingOBJ(Example):
-    title = "Loading OBJ"
-    gl_version = (3, 3)
-
     texture_path = 'image_dir/adv_1980.jpg'
     output_path = "adv"
 
@@ -121,6 +108,10 @@ class LoadingOBJ(Example):
             image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
             image.save('evaluation_images/{}/image_{}.jpg'.format(LoadingOBJ.output_path, self.i))
             self.i = self.i + 1
+
+    @classmethod
+    def run(cls):
+        mglw.run_window_config(cls)
 
 
 def evaluate(folder):
