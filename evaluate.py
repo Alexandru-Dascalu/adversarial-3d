@@ -1,6 +1,6 @@
 from pyrr import Matrix44
 import moderngl
-import moderngl_window as mglw
+from objloader import Obj
 import os
 import numpy as np
 import tensorflow as tf
@@ -9,7 +9,7 @@ from PIL import Image
 import renderer
 
 
-class LoadingOBJ(mglw.WindowConfig):
+class LoadingOBJ:
     gl_version = (3, 3)
     title = "Loading OBJ"
     window_size = (1199, 1199)
@@ -23,9 +23,17 @@ class LoadingOBJ(mglw.WindowConfig):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.i = 0
-        self.obj = self.load_scene('3d_model/barrel.obj')
-        self.texture = self.load_texture_2d(LoadingOBJ.texture_path)
+        self.ctx = moderngl.create_standalone_context(require=330)
+        # why use depth test and face culling? Is it necessary to discard polygons which will not be visible in the
+        # image, as we do not need those for computing the UV mapping?
+        # self.ctx.enable(moderngl.DEPTH_TEST)
+        # self.ctx.enable(moderngl.CULL_FACE)
+
+        self.texture = self.load_texture(LoadingOBJ.texture_path)
+
+        # Create frame buffer, where the scene will be rendered. Texture is empty, as we do not need the actual texture
+        # of the model for calculating the UV mapping.
+        self.fbo = self.ctx.simple_framebuffer((1199, 1199))
 
         self.prog = self.ctx.program(
             vertex_shader='''
@@ -68,16 +76,43 @@ class LoadingOBJ(mglw.WindowConfig):
             ''',
         )
 
+        self.vao = []
+        self.load_obj('3d_model/barrel.obj')
         self.color = self.prog['Color']
         self.mvp = self.prog['Mvp']
 
-        # Create a vao from the first root node (attribs are auto mapped)
-        self.vao = self.obj.root_nodes[0].mesh.vao.instance(self.prog)
+    def load_obj(self, file_path):
+        """
+        Load 3D model from .obj file and create vertex array based on it.
 
-        self.fbo = self.ctx.simple_framebuffer((1199, 1199))
+        Parameters
+        ----------
+        file_path : string
+            Path to .obj file of the object that will be rendered.
+        """
+        if not os.path.isfile(file_path):
+            print('{} is not an existing regular file!'.format(file_path))
+            return
 
-    def render(self, time, frame_time):
-        if self.i < 100:
+        obj = Obj.open(file_path)
+
+        # TODO: not very efficient, consider using an element index array later
+        # make vertex array with two attributes, in_vert as vec3 and in_text as vec_2
+        self.vao = self.ctx.simple_vertex_array(
+            self.prog,
+            self.ctx.buffer(obj.pack('vx vy vz tx ty')),
+            "in_position", "in_texcoord_0"
+        )
+
+    def load_texture(self, path):
+        image = Image.open(path)
+        raw_image = image.tobytes()
+        image.close()
+
+        return self.ctx.texture((2048, 2048), 3, raw_image)
+
+    def render(self):
+        for i in range(100):
             self.ctx.clear(1.0, 1.0, 1.0)
             self.ctx.enable(moderngl.DEPTH_TEST)
 
@@ -106,12 +141,12 @@ class LoadingOBJ(mglw.WindowConfig):
             self.vao.render()
 
             image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
-            image.save('evaluation_images/{}/image_{}.jpg'.format(LoadingOBJ.output_path, self.i))
-            self.i = self.i + 1
+            image.save('evaluation_images/{}/image_{}.jpg'.format(LoadingOBJ.output_path, i))
 
     @classmethod
     def run(cls):
-        mglw.run_window_config(cls)
+        loader = LoadingOBJ()
+        loader.render()
 
 
 def evaluate(folder):
