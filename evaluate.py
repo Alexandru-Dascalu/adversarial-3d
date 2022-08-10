@@ -19,8 +19,7 @@ class TextureRenderer:
 
     def __init__(self):
         self.ctx = moderngl.create_standalone_context(require=330)
-        # why use depth test and face culling? Is it necessary to discard polygons which will not be visible in the
-        # image, as we do not need those for computing the UV mapping?
+        # discard polygons which will not be visible in the image
         self.ctx.enable(moderngl.DEPTH_TEST)
         self.ctx.enable(moderngl.CULL_FACE)
 
@@ -31,17 +30,17 @@ class TextureRenderer:
                 uniform mat4 Mvp;
 
                 in vec3 in_vert;
-                in vec3 in_text;
+                in vec2 in_text;
                 in vec3 in_norm;
 
                 out vec3 v_vert;
                 out vec3 v_norm;
-                out vec3 v_text;
+                out vec2 v_text_coord;
 
                 void main() {
                     v_vert = in_vert;
                     v_norm = in_norm;
-                    v_text = in_text;
+                    v_text_coord = in_text;
                     gl_Position = Mvp * vec4(v_vert, 1.0);
                 }
             ''',
@@ -52,13 +51,12 @@ class TextureRenderer:
                 uniform vec4 Color;
 
                 in vec3 v_vert;
-                in vec3 v_norm;
-                in vec3 v_text;
+                in vec2 v_text_coord;
 
                 out vec4 f_color;
 
                 void main() {
-                    vec3 color = texture(Texture, v_text.xy).rgb;
+                    vec3 color = texture(Texture, v_text_coord).rgb;
                     color = color * (1.0 - Color.a) + Color.rgb * Color.a;
                     f_color = vec4(color, 1.0);
                 }
@@ -90,12 +88,12 @@ class TextureRenderer:
 
         obj = Obj.open(file_path)
 
-        vbo = self.ctx.buffer(obj.pack('vx vy vz tx ty tz nx ny nz'))
+        vbo = self.ctx.buffer(obj.pack('vx vy vz tx ty'))
         # TODO: not very efficient, consider using an element index array later
         self.vao = self.ctx.simple_vertex_array(
             self.prog,
             vbo,
-            "in_vert", "in_text", "in_norm"
+            "in_vert", "in_text"
         )
 
     def load_texture(self, path):
