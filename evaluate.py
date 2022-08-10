@@ -1,6 +1,5 @@
 from pyrr import Matrix44
 import moderngl
-import moderngl_window as mglw
 from objloader import Obj
 import os
 import numpy as np
@@ -10,34 +9,20 @@ from PIL import Image
 import renderer
 
 
-class LoadingOBJ:
-    gl_version = (3, 3)
-    title = "Loading OBJ"
+class TextureRenderer:
     window_size = (1199, 1199)
     aspect_ratio = 1
-    resizable = True
 
     resource_dir = os.path.normpath(os.path.join(__file__, '../'))
     texture_path = 'image_dir/adv_1980.jpg'
     output_path = "adv"
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
+    def __init__(self):
         self.ctx = moderngl.create_standalone_context(require=330)
         # why use depth test and face culling? Is it necessary to discard polygons which will not be visible in the
         # image, as we do not need those for computing the UV mapping?
         self.ctx.enable(moderngl.DEPTH_TEST)
         self.ctx.enable(moderngl.CULL_FACE)
-
-        self.texture = self.load_texture(LoadingOBJ.texture_path)
-
-        # Create frame buffer, where the scene will be rendered. Texture is empty, as we do not need the actual texture
-        # of the model for calculating the UV mapping.
-        self.fbo = self.ctx.framebuffer(
-            [self.ctx.texture((2048, 2048), components=3, dtype='f4')],
-            self.ctx.depth_renderbuffer(self.window_size)
-        )
 
         self.prog = self.ctx.program(
             vertex_shader='''
@@ -45,19 +30,19 @@ class LoadingOBJ:
 
                 uniform mat4 Mvp;
 
-                in vec3 in_position;
-                in vec3 in_normal;
-                in vec2 in_texcoord_0;
+                in vec3 in_vert;
+                in vec3 in_text;
+                in vec3 in_norm;
 
                 out vec3 v_vert;
                 out vec3 v_norm;
-                out vec2 v_text;
+                out vec3 v_text;
 
                 void main() {
-                    v_vert = in_position;
-                    v_norm = in_normal;
-                    v_text = in_texcoord_0;
-                    gl_Position = Mvp * vec4(in_position, 1.0);
+                    v_vert = in_vert;
+                    v_norm = in_norm;
+                    v_text = in_text;
+                    gl_Position = Mvp * vec4(v_vert, 1.0);
                 }
             ''',
             fragment_shader='''
@@ -68,20 +53,26 @@ class LoadingOBJ:
 
                 in vec3 v_vert;
                 in vec3 v_norm;
-                in vec2 v_text;
+                in vec3 v_text;
 
                 out vec4 f_color;
 
                 void main() {
-                    vec3 color = texture(Texture, v_text).rgb;
+                    vec3 color = texture(Texture, v_text.xy).rgb;
                     color = color * (1.0 - Color.a) + Color.rgb * Color.a;
                     f_color = vec4(color, 1.0);
                 }
             ''',
         )
 
+        self.texture = self.load_texture(TextureRenderer.texture_path)
+        self.vao = []
         self.load_obj('3d_model/barrel.obj')
+
+        self.fbo = self.ctx.simple_framebuffer((1199, 1199))
+
         self.color = self.prog['Color']
+        self.color.value = (1.0, 1.0, 1.0, 0.0)
         self.mvp = self.prog['Mvp']
 
     def load_obj(self, file_path):
@@ -99,25 +90,24 @@ class LoadingOBJ:
 
         obj = Obj.open(file_path)
 
+        vbo = self.ctx.buffer(obj.pack('vx vy vz tx ty tz nx ny nz'))
         # TODO: not very efficient, consider using an element index array later
-        # make vertex array with two attributes, in_vert as vec3 and in_text as vec_2
         self.vao = self.ctx.simple_vertex_array(
             self.prog,
-            self.ctx.buffer(obj.pack('vx vy vz tx ty')),
-            "in_vert", "in_text"
+            vbo,
+            "in_vert", "in_text", "in_norm"
         )
 
     def load_texture(self, path):
-        image = Image.open(path)
-        raw_image = image.tobytes()
-        image.close()
+        texture_image = Image.open(path)
+        raw_image = texture_image.tobytes()
+        texture_image.close()
 
         return self.ctx.texture((2048, 2048), 3, raw_image)
 
     def render(self):
         for i in range(100):
             self.ctx.clear(1.0, 1.0, 1.0)
-            self.ctx.enable(moderngl.DEPTH_TEST)
 
             rotation = Matrix44.from_matrix33(
                 renderer.Renderer.rand_rotation_matrix()
@@ -137,18 +127,17 @@ class LoadingOBJ:
             self.fbo.use()
             self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 
-            self.color.value = (1.0, 1.0, 1.0, 0.0)
             self.mvp.write((proj * lookat * translation * rotation).astype('f4'))
 
             self.texture.use()
             self.vao.render()
 
             image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
-            image.save('evaluation_images/{}/image_{}.jpg'.format(LoadingOBJ.output_path, i))
+            image.save('evaluation_images/{}/image_{}.jpg'.format(TextureRenderer.output_path, i))
 
     @classmethod
     def run(cls):
-        loader = LoadingOBJ()
+        loader = TextureRenderer()
         loader.render()
 
 
@@ -192,13 +181,13 @@ if __name__ == '__main__':
     print(tf.test.is_built_with_cuda())
 
     print("Adversarial texture:")
-    LoadingOBJ.texture_path = 'image_dir/adv_1980.jpg'
-    LoadingOBJ.output_path = 'adv'
-    LoadingOBJ.run()
-    evaluate(LoadingOBJ.output_path)
+    TextureRenderer.texture_path = 'image_dir/adv_1980.jpg'
+    TextureRenderer.output_path = 'adv'
+    TextureRenderer.run()
+    evaluate(TextureRenderer.output_path)
 
     print("Normal texture:")
-    LoadingOBJ.texture_path = '3d_model/barrel.jpg'
-    LoadingOBJ.output_path = 'normal'
-    LoadingOBJ.run()
-    evaluate(LoadingOBJ.output_path)
+    TextureRenderer.texture_path = '3d_model/barrel.jpg'
+    TextureRenderer.output_path = 'normal'
+    TextureRenderer.run()
+    evaluate(TextureRenderer.output_path)
