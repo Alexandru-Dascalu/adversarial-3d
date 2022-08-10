@@ -172,6 +172,22 @@ class TextureRenderer:
 #     _, accuracy = model.evaluate(data, adv_test_labels, batch_size=1)
 #     print("Target label accuracy: {}".format(accuracy * 100))
 
+def get_top_k_predictions(predictions, k=5):
+    assert len(predictions) == 100
+
+    count_dict = dict()
+    unique_predictions = set()
+    for prediction in predictions:
+        unique_predictions.add(prediction)
+        if prediction in count_dict:
+            count_dict[prediction] += 1
+        else:
+            count_dict[prediction] = 1
+
+    sorted_predictions = list(unique_predictions)
+    sorted_predictions.sort(key=lambda x: -count_dict[x])
+    return sorted_predictions[:k]
+
 
 if __name__ == '__main__':
     # print(tf.config.list_physical_devices('GPU'))
