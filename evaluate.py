@@ -23,6 +23,11 @@ class TextureRenderer:
         self.ctx.enable(moderngl.DEPTH_TEST)
         self.ctx.enable(moderngl.CULL_FACE)
 
+        self.fbo = self.ctx.framebuffer(
+            [self.ctx.renderbuffer(TextureRenderer.window_size)],
+            self.ctx.depth_renderbuffer(TextureRenderer.window_size)
+        )
+
         self.prog = self.ctx.program(
             vertex_shader='''
                 #version 330
@@ -66,8 +71,6 @@ class TextureRenderer:
         self.texture = self.load_texture(TextureRenderer.texture_path)
         self.vao = []
         self.load_obj('3d_model/barrel.obj')
-
-        self.fbo = self.ctx.simple_framebuffer((1199, 1199))
 
         self.color = self.prog['Color']
         self.color.value = (1.0, 1.0, 1.0, 0.0)
