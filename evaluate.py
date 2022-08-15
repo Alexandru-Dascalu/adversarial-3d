@@ -3,7 +3,7 @@ import moderngl
 from objloader import Obj
 import os
 import numpy as np
-# import tensorflow as tf
+import tensorflow as tf
 from PIL import Image
 
 import renderer
@@ -143,38 +143,38 @@ class TextureRenderer:
         loader.render()
 
 
-# def evaluate(folder):
-#     data = tf.keras.preprocessing.image_dataset_from_directory(
-#         'evaluation_images/{}'.format(folder),
-#         labels=None,
-#         label_mode=None,
-#         image_size=(299, 299),
-#         batch_size=None)
-#
-#     normalization_layer = tf.keras.layers.Rescaling(1. / 255)
-#     data = np.asarray([normalization_layer(image_batch) for image_batch in data])
-#
-#     model = tf.keras.applications.inception_v3.InceptionV3(
-#         include_top=True,
-#         weights='imagenet',
-#         classes=1000,
-#         classifier_activation='softmax'
-#     )
-#     model.compile(optimizer='adam',
-#                   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-#                   metrics=['accuracy'])
-#
-#     correct_test_labels = np.asarray([427] * 100)
-#     adv_test_labels = np.asarray([463] * 100)
-#
-#     predictions = model.predict(data, batch_size=1)
-#     print([np.argmax(prediction) for prediction in predictions])
-#
-#     _, accuracy = model.evaluate(data, correct_test_labels,  batch_size=1)
-#     print("Normal accuracy: {}".format(accuracy * 100))
-#
-#     _, accuracy = model.evaluate(data, adv_test_labels, batch_size=1)
-#     print("Target label accuracy: {}".format(accuracy * 100))
+def evaluate(folder):
+    data = tf.keras.preprocessing.image_dataset_from_directory(
+        'evaluation_images/{}'.format(folder),
+        labels=None,
+        label_mode=None,
+        image_size=(299, 299),
+        batch_size=None)
+
+    normalization_layer = tf.keras.layers.Rescaling(1. / 255)
+    data = np.asarray([normalization_layer(image_batch) for image_batch in data])
+
+    model = tf.keras.applications.inception_v3.InceptionV3(
+        include_top=True,
+        weights='imagenet',
+        classes=1000,
+        classifier_activation='softmax'
+    )
+    model.compile(optimizer='adam',
+                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                  metrics=['accuracy'])
+
+    correct_test_labels = np.asarray([427] * 100)
+    adv_test_labels = np.asarray([463] * 100)
+
+    predictions = model.predict(data, batch_size=1)
+    print([np.argmax(prediction) for prediction in predictions])
+
+    _, accuracy = model.evaluate(data, correct_test_labels,  batch_size=1)
+    print("Normal accuracy: {}".format(accuracy * 100))
+
+    _, accuracy = model.evaluate(data, adv_test_labels, batch_size=1)
+    print("Target label accuracy: {}".format(accuracy * 100))
 
 def get_top_k_predictions(predictions, k=5):
     assert len(predictions) == 100
@@ -194,18 +194,18 @@ def get_top_k_predictions(predictions, k=5):
 
 
 if __name__ == '__main__':
-    # print(tf.config.list_physical_devices('GPU'))
-    # print(tf.test.is_gpu_available())
-    # print(tf.test.is_built_with_cuda())
+    print(tf.config.list_physical_devices('GPU'))
+    print(tf.test.is_gpu_available())
+    print(tf.test.is_built_with_cuda())
 
-    # print("Adversarial texture:")
-    # TextureRenderer.texture_path = 'image_dir/adv_1980.jpg'
-    # TextureRenderer.output_path = 'adv'
-    # TextureRenderer.run()
-    # evaluate(TextureRenderer.output_path)
+    print("Adversarial texture:")
+    TextureRenderer.texture_path = 'image_dir/adv_1980.jpg'
+    TextureRenderer.output_path = 'adv'
+    TextureRenderer.run()
+    evaluate(TextureRenderer.output_path)
 
     print("Normal texture:")
     TextureRenderer.texture_path = '3d_model/barrel.jpg'
     TextureRenderer.output_path = 'normal'
     TextureRenderer.run()
-    # evaluate(TextureRenderer.output_path)
+    evaluate(TextureRenderer.output_path)
