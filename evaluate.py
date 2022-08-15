@@ -19,9 +19,7 @@ class TextureRenderer:
 
     def __init__(self):
         self.ctx = moderngl.create_standalone_context(require=330)
-        # discard polygons which will not be visible in the image
         self.ctx.enable(moderngl.DEPTH_TEST)
-        self.ctx.enable(moderngl.CULL_FACE)
 
         self.fbo = self.ctx.framebuffer(
             [self.ctx.renderbuffer(TextureRenderer.window_size)],
