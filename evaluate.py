@@ -101,6 +101,7 @@ class TextureRenderer:
 
     def load_texture(self, path):
         texture_image = Image.open(path)
+        texture_image = texture_image.transpose(Image.FLIP_TOP_BOTTOM)
         raw_image = texture_image.tobytes()
         texture_image.close()
 
