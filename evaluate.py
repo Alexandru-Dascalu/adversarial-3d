@@ -15,6 +15,7 @@ class TextureRenderer:
 
     resource_dir = os.path.normpath(os.path.join(__file__, '../'))
     texture_path = 'image_dir/adv_1980.jpg'
+    obj_path = '3d_model/barrel.obj'
     output_path = "adv"
 
     def __init__(self):
@@ -68,7 +69,7 @@ class TextureRenderer:
 
         self.texture = self.load_texture(TextureRenderer.texture_path)
         self.vao = []
-        self.load_obj('3d_model/barrel.obj')
+        self.load_obj(TextureRenderer.obj_path)
 
         self.color = self.prog['Color']
         self.color.value = (1.0, 1.0, 1.0, 0.0)
@@ -198,6 +199,7 @@ if __name__ == '__main__':
 
     print("Adversarial texture:")
     TextureRenderer.texture_path = 'image_dir/adv_1980.jpg'
+    TextureRenderer.output_path = '3d_model/barrel.obj'
     TextureRenderer.output_path = 'adv'
     TextureRenderer.run()
     evaluate(TextureRenderer.output_path)
