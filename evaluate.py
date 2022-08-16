@@ -101,10 +101,12 @@ class TextureRenderer:
     def load_texture(self, path):
         texture_image = Image.open(path)
         texture_image = texture_image.transpose(Image.FLIP_TOP_BOTTOM)
+        texture_size = texture_image.size
+
         raw_image = texture_image.tobytes()
         texture_image.close()
 
-        return self.ctx.texture((2048, 2048), 3, raw_image)
+        return self.ctx.texture(texture_size, 3, raw_image)
 
     def render(self):
         for i in range(100):
@@ -174,6 +176,7 @@ def evaluate(folder):
 
     _, accuracy = model.evaluate(data, adv_test_labels, batch_size=1)
     print("Target label accuracy: {}".format(accuracy * 100))
+
 
 def get_top_k_predictions(predictions, k=5):
     assert len(predictions) == 100
