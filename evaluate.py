@@ -201,14 +201,14 @@ if __name__ == '__main__':
     print(tf.test.is_built_with_cuda())
 
     print("Adversarial texture:")
-    TextureRenderer.texture_path = 'image_dir/adv_1980.jpg'
-    TextureRenderer.output_path = '3d_model/barrel.obj'
+    TextureRenderer.texture_path = 'adv_textures/adv_1980.jpg'
+    TextureRenderer.obj_path = 'dataset/taxi/taxi.obj'
     TextureRenderer.output_path = 'adv'
     TextureRenderer.run()
     evaluate(TextureRenderer.output_path)
 
     print("Normal texture:")
-    TextureRenderer.texture_path = '3d_model/barrel.jpg'
+    TextureRenderer.texture_path = 'dataset/taxi/13914_Taxi_car_diffuse.jpg'
     TextureRenderer.output_path = 'normal'
     TextureRenderer.run()
     evaluate(TextureRenderer.output_path)
