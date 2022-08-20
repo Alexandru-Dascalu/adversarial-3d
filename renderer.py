@@ -221,7 +221,7 @@ class Renderer(object):
             self.vao.render()
 
             Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
-                'renders/scene_{}.jpg'.format(i))
+                'training_renders/scene_{}.jpg'.format(i))
 
             framebuffer = self.fbo.read(components=2, dtype='f4')
             warp[i] = np.frombuffer(framebuffer, dtype=np.float32).reshape(

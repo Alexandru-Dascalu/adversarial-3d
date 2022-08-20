@@ -22,7 +22,7 @@ flags.DEFINE_integer('target', 637, 'the label for adversarial examples')
 
 flags.DEFINE_string('logdir', 'logdir', 'logs directory')
 flags.DEFINE_string('model_name', 'inception_v3.ckpt', 'name of checkpoint file')
-flags.DEFINE_string('image_dir', 'image_dir', 'directory for storing adversarial examples')
+flags.DEFINE_string('image_dir', 'adv_textures', 'directory for storing adversarial examples')
 
 ############################
 #   renderer setting       #
