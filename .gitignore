@@ -1,7 +1,7 @@
 # Pycharm project
 .idea/
 # Folder for saving adversarial textures
-image_dir/
+adv_textures/
 renders/
 evaluation_images/
 
