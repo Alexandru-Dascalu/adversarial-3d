@@ -28,8 +28,8 @@ flags.DEFINE_string('image_dir', 'image_dir', 'directory for storing adversarial
 #   renderer setting       #
 ############################
 
-flags.DEFINE_string('obj', 'D:\Informatica\GAN-EOT\GAN-EOT\dataset\\rugby_ball\\rugby_ball.obj', '.obj file path')
-flags.DEFINE_string('texture', 'D:\Informatica\GAN-EOT\GAN-EOT\dataset\\rugby_ball\\rugby_ball.jpg', 'texture file path')
+flags.DEFINE_string('obj', '\dataset\\rugby_ball\\rugby_ball.obj', '.obj file path')
+flags.DEFINE_string('texture', '\dataset\\rugby_ball\\rugby_ball.jpg', 'texture file path')
 
 flags.DEFINE_float('camera_distance_min', 1.8, 'minimum camera distance')
 flags.DEFINE_float('camera_distance_max', 2.3, 'maximum camera distance')
