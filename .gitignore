@@ -2,7 +2,7 @@
 .idea/
 # Folder for saving adversarial textures
 adv_textures/
-renders/
+training_renders/
 evaluation_images/
 
 ### OSX ###
