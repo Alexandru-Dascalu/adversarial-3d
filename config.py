@@ -7,12 +7,14 @@ flags = tf.compat.v1.flags
 ############################
 
 flags.DEFINE_integer('batch_size', 8, 'batch size')
-flags.DEFINE_float('batch_reuse_ratio', 0.8, 'percentage of batch samples that are reused in the next iteration')
-flags.DEFINE_integer('iterations', 1000, 'iterations')
-flags.DEFINE_float('learning_rate', 0.002, 'learning rate')
+flags.DEFINE_float('batch_reuse_ratio', 0, 'percentage of batch samples that are reused in the next iteration')
+flags.DEFINE_integer('iterations', 1500, 'iterations')
+flags.DEFINE_float('learning_rate', 0.001, 'initial learning rate')
+flags.DEFINE_float('min_learning_rate', 3 * 1e-5, 'learning rate')
+flags.DEFINE_float('decay_rate', 0.96, 'learning rate')
 flags.DEFINE_float('l2_weight', 0.001, 'the weighting factor for l2 loss')
 # 463 - broom
-flags.DEFINE_integer('target', 463, 'the label for adversarial examples')
+flags.DEFINE_integer('target', 637, 'the label for adversarial examples')
 
 ############################
 #   environment setting    #
@@ -26,8 +28,8 @@ flags.DEFINE_string('image_dir', 'image_dir', 'directory for storing adversarial
 #   renderer setting       #
 ############################
 
-flags.DEFINE_string('obj', '3d_model/barrel.obj', '.obj file path')
-flags.DEFINE_string('texture', '3d_model/barrel.jpg', 'texture file path')
+flags.DEFINE_string('obj', 'D:\Informatica\GAN-EOT\GAN-EOT\dataset\\rugby_ball\\rugby_ball.obj', '.obj file path')
+flags.DEFINE_string('texture', 'D:\Informatica\GAN-EOT\GAN-EOT\dataset\\rugby_ball\\rugby_ball.jpg', 'texture file path')
 
 flags.DEFINE_float('camera_distance_min', 1.8, 'minimum camera distance')
 flags.DEFINE_float('camera_distance_max', 2.3, 'maximum camera distance')
