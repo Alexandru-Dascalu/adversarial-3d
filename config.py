@@ -14,7 +14,8 @@ flags.DEFINE_float('min_learning_rate', 3 * 1e-5, 'learning rate')
 flags.DEFINE_float('decay_rate', 0.96, 'learning rate')
 flags.DEFINE_float('l2_weight', 0.001, 'the weighting factor for l2 loss')
 # 463 - broom
-flags.DEFINE_integer('target', 637, 'the label for adversarial examples')
+flags.DEFINE_integer('target', 463, 'the label for adversarial examples')
+flags.DEFINE_integer('ground_truth', 427, 'true label')
 
 ############################
 #   environment setting    #

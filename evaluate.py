@@ -7,10 +7,12 @@ import tensorflow as tf
 from PIL import Image
 
 import renderer
+from config import cfg
 
 
 class TextureRenderer:
     window_size = (1199, 1199)
+    sample_size = 200
     aspect_ratio = 1
 
     resource_dir = os.path.normpath(os.path.join(__file__, '../'))
@@ -109,7 +111,7 @@ class TextureRenderer:
         return self.ctx.texture(texture_size, 3, raw_image)
 
     def render(self):
-        for i in range(100):
+        for i in range(TextureRenderer.sample_size):
             self.ctx.clear(1.0, 1.0, 1.0)
 
             rotation = Matrix44.from_matrix33(
@@ -165,8 +167,8 @@ def evaluate(folder):
                   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                   metrics=['accuracy'])
 
-    correct_test_labels = np.asarray([427] * 100)
-    adv_test_labels = np.asarray([463] * 100)
+    correct_test_labels = np.asarray([cfg.ground_truth] * TextureRenderer.sample_size)
+    adv_test_labels = np.asarray([cfg.target] * TextureRenderer.sample_size)
 
     predictions = model.predict(data, batch_size=1)
     print([np.argmax(prediction) for prediction in predictions])
@@ -179,7 +181,7 @@ def evaluate(folder):
 
 
 def get_top_k_predictions(predictions, k=5):
-    assert len(predictions) == 100
+    assert len(predictions) == TextureRenderer.sample_size
 
     count_dict = dict()
     unique_predictions = set()
@@ -202,13 +204,13 @@ if __name__ == '__main__':
 
     print("Adversarial texture:")
     TextureRenderer.texture_path = 'adv_textures/adv_1980.jpg'
-    TextureRenderer.obj_path = 'dataset/taxi/taxi.obj'
+    TextureRenderer.obj_path = 'dataset/barrel/barrel.obj'
     TextureRenderer.output_path = 'adv'
     TextureRenderer.run()
     evaluate(TextureRenderer.output_path)
 
     print("Normal texture:")
-    TextureRenderer.texture_path = 'dataset/taxi/13914_Taxi_car_diffuse.jpg'
+    TextureRenderer.texture_path = 'dataset/barrel/barrel.jpg'
     TextureRenderer.output_path = 'normal'
     TextureRenderer.run()
     evaluate(TextureRenderer.output_path)
