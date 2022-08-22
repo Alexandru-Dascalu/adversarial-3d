@@ -12,7 +12,7 @@ flags.DEFINE_integer('iterations', 1500, 'iterations')
 flags.DEFINE_float('learning_rate', 0.001, 'initial learning rate')
 flags.DEFINE_float('min_learning_rate', 3 * 1e-5, 'learning rate')
 flags.DEFINE_float('decay_rate', 0.96, 'learning rate')
-flags.DEFINE_float('l2_weight', 0.001, 'the weighting factor for l2 loss')
+flags.DEFINE_float('l2_weight', 0.025, 'the weighting factor for l2 loss')
 # 463 - broom
 flags.DEFINE_integer('target', 463, 'the label for adversarial examples')
 flags.DEFINE_integer('ground_truth', 427, 'true label')
@@ -29,8 +29,8 @@ flags.DEFINE_string('image_dir', 'adv_textures', 'directory for storing adversar
 #   renderer setting       #
 ############################
 
-flags.DEFINE_string('obj', 'dataset/rugby_ball/rugby_ball.obj', '.obj file path')
-flags.DEFINE_string('texture', 'dataset/rugby_ball/rugby_ball.jpg', 'texture file path')
+flags.DEFINE_string('obj', 'dataset/barrel/barrel.obj', '.obj file path')
+flags.DEFINE_string('texture', 'dataset/barrel/barrel.jpg', 'texture file path')
 
 flags.DEFINE_float('camera_distance_min', 1.8, 'minimum camera distance')
 flags.DEFINE_float('camera_distance_max', 2.3, 'maximum camera distance')

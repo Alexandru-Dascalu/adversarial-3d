@@ -37,8 +37,7 @@ def main():
     with tf.device("/GPU:0"):
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
         model = AdversarialNet(texture)
-        loss_history = []
-        tfr_history = []
+
         for i in range(cfg.iterations):
             # UV mapping is a numpy array of shape batch_size x texture_width x texture_height x 2
             if i == 0:
@@ -53,8 +52,6 @@ def main():
 
             # optimise adversarial texture
             model.optimisation_step(uv)
-            loss_history.append(model.loss)
-            tfr_history.append(get_tfr(model.top_k_predictions))
 
             log_training_to_console(model, i)
             if FILE_LOGGING_ENABLED:
@@ -66,7 +63,7 @@ def main():
                 adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
                 adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
 
-        plot_training_history(loss_history, tfr_history)
+        plot_training_history(model)
 
     if log_writer is not None:
         log_writer.close()
@@ -74,7 +71,7 @@ def main():
 
 def log_training_to_console(model, step):
     print("Step: {}".format(step))
-    print('Loss: {}'.format(model.loss))
+    print('Loss: {}'.format(model.main_loss_history[step]))
     print('Diff: {}'.format(model.get_diff().sum()))
     print('Prediction:\n{}'.format(model.top_k_predictions))
 
@@ -95,31 +92,24 @@ def log_training_to_file(model, writer, step):
     with writer.as_default():
         tf.summary.image('train/std_images', model.std_images, step=step)
         tf.summary.image('train/adv_images', model.adv_images, step=step)
-        tf.summary.scalar('train/loss', model.loss, step=step)
+        tf.summary.scalar('train/main_loss', model.main_loss_history, step=step)
         tf.summary.histogram('train/top_k_predictions', model.top_k_predictions, step=step)
         writer.flush()
 
 
-def get_tfr(top_k_predictions):
-    assert top_k_predictions.shape == (cfg.batch_size, 5)
+def plot_training_history(adv_model):
+    total_loss = [(main_loss + l2) for main_loss, l2 in zip(adv_model.main_loss_history, adv_model.l2_loss_history)]
 
-    target_reached = 0
-    for top_prediction in top_k_predictions[:, 0]:
-        if top_prediction == cfg.target:
-            target_reached += 1
-
-    tfr = target_reached / cfg.batch_size
-    return tfr
-
-
-def plot_training_history(loss_history, tfr_history):
-    plt.plot(loss_history, label="Loss")
+    plt.plot(adv_model.main_loss_history, label="Main Loss")
+    plt.plot(adv_model.l2_loss_history, label="L2 Loss")
+    plt.plot(total_loss, label="Total Loss")
     plt.xlabel("Steps")
     plt.ylabel("Loss")
     plt.title("Loss during training")
+    plt.legend()
     plt.show()
 
-    plt.plot(tfr_history, label="TFR")
+    plt.plot(adv_model.tfr_history, label="TFR")
     plt.xlabel("Steps")
     plt.ylabel("Accuracy")
     plt.title("TFR during training")

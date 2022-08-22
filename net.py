@@ -33,7 +33,10 @@ class AdversarialNet(tf.Module):
         self.uv_mapping = tf.zeros((1,))
         self.logits = tf.zeros((cfg.batch_size, 1000))
         self.top_k_predictions = []
-        self.loss = 0
+
+        self.main_loss_history = []
+        self.l2_loss_history = []
+        self.tfr_history = []
 
         self.optimiser = tf.keras.optimizers.Adam(learning_rate=cfg.learning_rate)
         self.victim_model = tf.keras.applications.inception_v3.InceptionV3(
@@ -81,11 +84,16 @@ class AdversarialNet(tf.Module):
         l2_loss = tf.sqrt(tf.reduce_sum(
             input_tensor=tf.square(tf.subtract(lab_std_images, lab_adv_images)), axis=[1, 2, 3]))
 
-        loss = cross_entropy_loss + cfg.l2_weight * l2_loss
-        # reduce loss tensor to one scalar representing the average loss across the batch
-        loss = tf.reduce_mean(loss)
+        # reduce loss tensors to one scalar representing the average loss across the batch
+        cross_entropy_loss = tf.reduce_mean(cross_entropy_loss)
+        l2_loss = tf.reduce_mean(l2_loss)
 
-        self.loss = loss
+        # add losses for this optimisation step to history
+        self.main_loss_history.append(cross_entropy_loss.numpy())
+        self.l2_loss_history.append(l2_loss.numpy())
+        self.tfr_history.append(self.get_tfr())
+
+        loss = cross_entropy_loss + cfg.l2_weight * l2_loss
         return loss
 
     def __call__(self):
@@ -344,3 +352,12 @@ class AdversarialNet(tf.Module):
         """
         diff_tensor = self.adv_texture - self.std_texture
         return diff_tensor.numpy()
+
+    def get_tfr(self):
+        target_reached = 0
+        for top_prediction in self.top_k_predictions[:, 0]:
+            if top_prediction == cfg.target:
+                target_reached += 1
+
+        tfr = target_reached / cfg.batch_size
+        return tfr
