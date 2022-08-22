@@ -90,7 +90,7 @@ class AdversarialNet(tf.Module):
 
         # add losses for this optimisation step to history
         self.main_loss_history.append(cross_entropy_loss.numpy())
-        self.l2_loss_history.append(l2_loss.numpy())
+        self.l2_loss_history.append(cfg.l2_weight * l2_loss.numpy())
         self.tfr_history.append(self.get_tfr())
 
         loss = cross_entropy_loss + cfg.l2_weight * l2_loss
