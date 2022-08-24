@@ -130,7 +130,7 @@ class AdversarialNet(tf.Module):
         # TODO: clip or scale to [0.0, 1.0]?
         new_std_images, new_adv_images = AdversarialNet.normalize(new_std_images, new_adv_images)
         # Pass images through trained model and get predictions in the form of logits
-        # why scale the images?
+        # we scale the images because inceptionv3 requires images with values between -1 and 1
         scaled_images = 2.0 * new_adv_images - 1.0
         new_logits = self.victim_model(scaled_images)
 
@@ -165,7 +165,7 @@ class AdversarialNet(tf.Module):
             std_texture = tf.expand_dims(self.std_texture, axis=0)
             adv_texture = tf.expand_dims(self.adv_texture, axis=0)
 
-        # Get UV map for this rendering in the batch. tfa.image.resampler requires the first dimension of UV map to be
+        # tfa.image.resampler requires the first dimension of UV map to be
         # batch size, so we add an extra dimension with one element
         image_uv_map = np.expand_dims(uv_mapping, axis=0)
 
@@ -306,9 +306,9 @@ class AdversarialNet(tf.Module):
 
     @staticmethod
     def normalize(x, y):
-        minimum = tf.minimum(tf.reduce_min(input_tensor=x, axis=[1, 2], keepdims=True),
+        minimum = tf.minimum(tf.reduce_min(input_tensor=x, axis=[1, 2, 3], keepdims=True),
                              tf.reduce_min(input_tensor=y, axis=[1, 2, 3], keepdims=True))
-        maximum = tf.maximum(tf.reduce_max(input_tensor=x, axis=[1, 2], keepdims=True),
+        maximum = tf.maximum(tf.reduce_max(input_tensor=x, axis=[1, 2, 3], keepdims=True),
                              tf.reduce_max(input_tensor=y, axis=[1, 2, 3], keepdims=True))
 
         minimum = tf.minimum(minimum, 0)
