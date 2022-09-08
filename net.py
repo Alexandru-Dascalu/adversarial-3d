@@ -129,10 +129,9 @@ class AdversarialNet(tf.Module):
 
         # TODO: clip or scale to [0.0, 1.0]?
         new_std_images, new_adv_images = AdversarialNet.normalize(new_std_images, new_adv_images)
-        # Pass images through trained model and get predictions in the form of logits
+        # Pass images through trained model and get predictions in the form of logits.
         # we scale the images because inceptionv3 requires images with values between -1 and 1
-        scaled_images = 2.0 * new_adv_images - 1.0
-        new_logits = self.victim_model(scaled_images)
+        new_logits = self.victim_model(2.0 * new_adv_images - 1.0)
 
         # add images and prediction logits for the new renders to the whole batch
         self.std_images = AdversarialNet.insert_new_elements_in_tensor(self.std_images, new_std_images)
@@ -152,8 +151,8 @@ class AdversarialNet(tf.Module):
         -------
         tuple
             Two tensors. The first one is of shape num_new_renders x 299 x 299 x 3, representing the images of the new
-            renders with the normal texture. The second is of shape num_new_renders x 299 x 299 x 3, representing the images
-            of the new renders with the adversarial texture.
+            renders with the normal texture. The second is of shape num_new_renders x 299 x 299 x 3, representing the
+            images of the new renders with the adversarial texture.
         """
         # check if we should add print errors, so that the adversarial texture may be used for a 3D printed object
         # and still be effective
