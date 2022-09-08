@@ -114,7 +114,7 @@ class AdversarialNet(tf.Module):
         # memory (a 12 x 2048 x 2048 x 3 tensor is 600 MB, and we would create multiple ones). We make the first image
         # outside of the loop to initialise the list of new images, and to avoid putting an if statement in the loop
         new_std_images, new_adv_images = self.create_image(self.uv_mapping[0])
-        for i in range(num_new_renders - 1):
+        for i in range(1, num_new_renders):
             std_image, adv_image = self.create_image(self.uv_mapping[i])
             new_std_images = tf.concat([new_std_images, std_image], axis=0)
             new_adv_images = tf.concat([new_adv_images, adv_image], axis=0)
@@ -335,7 +335,7 @@ class AdversarialNet(tf.Module):
 
         lab_images = skimage.color.rgb2lab(rgb_images)
 
-        # normalise the lightness channel, which has values between 0 and 1
+        # normalise the lightness channel, which has values between 0 and 100
         lab_images[..., 0] = lab_images[..., 0] / 100
         # normalise the greeness-redness and blueness-yellowness channels, which normally are between -128 and 127
         lab_images[..., 1] = (lab_images[..., 1] + 128) / 255
