@@ -38,27 +38,28 @@ def main():
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
         model = AdversarialNet(texture)
 
+        num_new_renders = int(np.ceil(cfg.batch_size * (1 - cfg.batch_reuse_ratio)))
+        print("New renders for each step: {}".format(num_new_renders))
         for i in range(cfg.iterations):
             # UV mapping is a numpy array of shape batch_size x texture_width x texture_height x 2
             if i == 0:
-                uv = renderer.render(cfg.batch_size)
+                uv_mappings = renderer.render(cfg.batch_size)
             else:
-                num_new_renders = int(np.ceil(cfg.batch_size * (1 - cfg.batch_reuse_ratio)))
-                uv = renderer.render(num_new_renders)
+                uv_mappings = renderer.render(num_new_renders)
 
             # de-normalise UV mapping, so it has values from 0 to texture width-1 in uv[...,0] and 0 to height-1 in
             # uv[...,1], so 0 to 2047 by default.
-            uv = uv * np.asarray([width - 1, height - 1], dtype=np.float32)
+            uv_mappings = uv_mappings * np.asarray([width - 1, height - 1], dtype=np.float32)
 
             # optimise adversarial texture
-            model.optimisation_step(uv)
+            model.optimisation_step(uv_mappings)
 
             log_training_to_console(model, i)
             if FILE_LOGGING_ENABLED:
                 log_training_to_file(model, log_writer, i)
 
             # save intermediate adversarial textures
-            if i % 10 == 0:
+            if i % 200 == 0:
                 adv_texture = np.rint(model.adv_texture.numpy() * 255)
                 adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
                 adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
