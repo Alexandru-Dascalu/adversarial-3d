@@ -7,11 +7,9 @@ flags = tf.compat.v1.flags
 ############################
 
 flags.DEFINE_integer('batch_size', 8, 'batch size')
-flags.DEFINE_float('batch_reuse_ratio', 0, 'percentage of batch samples that are reused in the next iteration')
-flags.DEFINE_integer('iterations', 1500, 'iterations')
-flags.DEFINE_float('learning_rate', 0.001, 'initial learning rate')
-flags.DEFINE_float('min_learning_rate', 3 * 1e-5, 'learning rate')
-flags.DEFINE_float('decay_rate', 0.96, 'learning rate')
+flags.DEFINE_float('batch_reuse_ratio', 0.7, 'percentage of batch samples that are reused in the next iteration')
+flags.DEFINE_integer('iterations', 10000, 'iterations')
+flags.DEFINE_float('learning_rate', 0.003, 'initial learning rate')
 flags.DEFINE_float('l2_weight', 0.025, 'the weighting factor for l2 loss')
 # 463 - broom
 flags.DEFINE_integer('target', 463, 'the label for adversarial examples')
@@ -22,7 +20,6 @@ flags.DEFINE_integer('ground_truth', 427, 'true label')
 ############################
 
 flags.DEFINE_string('logdir', 'logdir', 'logs directory')
-flags.DEFINE_string('model_name', 'inception_v3.ckpt', 'name of checkpoint file')
 flags.DEFINE_string('image_dir', 'adv_textures', 'directory for storing adversarial examples')
 
 ############################
