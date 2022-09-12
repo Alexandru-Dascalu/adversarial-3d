@@ -62,7 +62,8 @@ def main():
             # optimise adversarial texture
             model.optimisation_step(uv_mappings)
 
-            log_training_to_console(model, i)
+            if i % 100 == 0:
+                log_training_to_console(model, i)
             if FILE_LOGGING_ENABLED:
                 log_training_to_file(model, log_writer, i)
 
@@ -82,7 +83,6 @@ def log_training_to_console(model, step):
     print("Step: {}".format(step))
     print('Loss: {}'.format(model.main_loss_history[step]))
     print('Diff: {}'.format(model.get_diff().sum()))
-    print('Prediction:\n{}'.format(model.top_k_predictions))
 
 
 def log_training_to_file(model, writer, step):
