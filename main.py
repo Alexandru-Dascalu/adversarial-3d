@@ -22,9 +22,9 @@ def main():
 
     assert height == width
     if height == 1024:
-        BATCH_SIZE = 38
+        BATCH_SIZE = 40
     elif height == 2048:
-        BATCH_SIZE = 29
+        BATCH_SIZE = 30
     else:
         raise ValueError("invalid texture size!")
 
