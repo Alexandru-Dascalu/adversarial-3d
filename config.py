@@ -13,7 +13,7 @@ flags.DEFINE_float('learning_rate', 0.003, 'initial learning rate')
 flags.DEFINE_float('l2_weight', 0.025, 'the weighting factor for l2 loss')
 # 463 - broom
 TARGET_LABEL = 463
-flags.DEFINE_integer('ground_truth', 427, 'true label')
+TRUE_LABELS = [427]
 
 ############################
 #   environment setting    #
