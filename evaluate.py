@@ -7,7 +7,7 @@ import tensorflow as tf
 from PIL import Image
 
 import renderer
-from config import cfg
+from config import cfg, TARGET_LABEL
 
 
 class TextureRenderer:
@@ -168,7 +168,7 @@ def evaluate(folder):
                   metrics=['accuracy'])
 
     correct_test_labels = np.asarray([cfg.ground_truth] * TextureRenderer.sample_size)
-    adv_test_labels = np.asarray([cfg.target] * TextureRenderer.sample_size)
+    adv_test_labels = np.asarray([TARGET_LABEL] * TextureRenderer.sample_size)
 
     predictions = model.predict(data, batch_size=1)
     print([np.argmax(prediction) for prediction in predictions])

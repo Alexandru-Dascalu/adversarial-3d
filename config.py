@@ -6,13 +6,13 @@ flags = tf.compat.v1.flags
 #    hyper parameters      #
 ############################
 
-flags.DEFINE_integer('batch_size', 8, 'batch size')
-flags.DEFINE_float('batch_reuse_ratio', 0.7, 'percentage of batch samples that are reused in the next iteration')
+BATCH_SIZE = 8
+flags.DEFINE_float('batch_reuse_ratio', 0.8, 'percentage of batch samples that are reused in the next iteration')
 flags.DEFINE_integer('iterations', 10000, 'iterations')
 flags.DEFINE_float('learning_rate', 0.003, 'initial learning rate')
 flags.DEFINE_float('l2_weight', 0.025, 'the weighting factor for l2 loss')
 # 463 - broom
-flags.DEFINE_integer('target', 463, 'the label for adversarial examples')
+TARGET_LABEL = 463
 flags.DEFINE_integer('ground_truth', 427, 'true label')
 
 ############################
@@ -26,8 +26,8 @@ flags.DEFINE_string('image_dir', 'adv_textures', 'directory for storing adversar
 #   renderer setting       #
 ############################
 
-flags.DEFINE_string('obj', 'dataset/barrel/barrel.obj', '.obj file path')
-flags.DEFINE_string('texture', 'dataset/barrel/barrel.jpg', 'texture file path')
+OBJ_PATH = 'dataset/barrel/barrel.obj'
+TEXTURE_PATH = 'dataset/barrel/barrel.jpg'
 
 flags.DEFINE_float('camera_distance_min', 1.8, 'minimum camera distance')
 flags.DEFINE_float('camera_distance_max', 2.3, 'maximum camera distance')

@@ -11,16 +11,24 @@ tf.config.set_logical_device_configuration(
 from PIL import Image
 from renderer import Renderer
 from net import AdversarialNet
-from config import cfg
+from config import cfg, BATCH_SIZE, OBJ_PATH, TEXTURE_PATH
 
 FILE_LOGGING_ENABLED = False
 
 
 def main():
-    texture = Image.open(cfg.texture)
+    texture = Image.open(TEXTURE_PATH)
     height, width = texture.size
 
-    renderer = Renderer(cfg.obj, (299, 299))
+    assert height == width
+    if height == 1024:
+        BATCH_SIZE = 38
+    elif height == 2048:
+        BATCH_SIZE = 29
+    else:
+        raise ValueError("invalid texture size!")
+
+    renderer = Renderer(OBJ_PATH, (299, 299))
     renderer.set_parameters(
         camera_distance=(cfg.camera_distance_min, cfg.camera_distance_max),
         x_translation=(cfg.x_translation_min, cfg.x_translation_max),
@@ -38,12 +46,12 @@ def main():
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
         model = AdversarialNet(texture)
 
-        num_new_renders = int(np.ceil(cfg.batch_size * (1 - cfg.batch_reuse_ratio)))
+        num_new_renders = int(np.ceil(BATCH_SIZE * (1 - cfg.batch_reuse_ratio)))
         print("New renders for each step: {}".format(num_new_renders))
         for i in range(cfg.iterations):
             # UV mapping is a numpy array of shape batch_size x texture_width x texture_height x 2
             if i == 0:
-                uv_mappings = renderer.render(cfg.batch_size)
+                uv_mappings = renderer.render(BATCH_SIZE)
             else:
                 uv_mappings = renderer.render(num_new_renders)
 
