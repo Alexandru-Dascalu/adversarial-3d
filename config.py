@@ -45,7 +45,7 @@ flags.DEFINE_float('y_translation_max', 0.05, 'maximum translation along y-axis'
 # post-processing setting  #
 ############################
 
-flags.DEFINE_boolean('print_error', True, 'consider printing error for textures')
+flags.DEFINE_boolean('print_error', False, 'consider printing error for textures')
 flags.DEFINE_boolean('photo_error', True, 'consider photography error for images')
 
 flags.DEFINE_float('background_min', 0.1, 'minimum rgb value for background')
