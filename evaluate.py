@@ -7,7 +7,7 @@ import tensorflow as tf
 from PIL import Image
 
 import renderer
-from config import cfg, TARGET_LABEL
+from config import cfg, TARGET_LABEL, TRUE_LABELS
 
 
 class TextureRenderer:
@@ -167,7 +167,7 @@ def evaluate(folder):
                   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                   metrics=['accuracy'])
 
-    correct_test_labels = np.asarray([cfg.ground_truth] * TextureRenderer.sample_size)
+    correct_test_labels = np.asarray(TRUE_LABELS * TextureRenderer.sample_size)
     adv_test_labels = np.asarray([TARGET_LABEL] * TextureRenderer.sample_size)
 
     predictions = model.predict(data, batch_size=1)
