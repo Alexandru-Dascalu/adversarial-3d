@@ -29,6 +29,7 @@ flags.DEFINE_string('image_dir', 'adv_textures', 'directory for storing adversar
 
 OBJ_PATH = 'dataset/barrel/barrel.obj'
 TEXTURE_PATH = 'dataset/barrel/barrel.jpg'
+NAME = "barrel"
 
 flags.DEFINE_float('camera_distance_min', 1.8, 'minimum camera distance')
 flags.DEFINE_float('camera_distance_max', 2.3, 'maximum camera distance')
@@ -44,7 +45,7 @@ flags.DEFINE_float('y_translation_max', 0.05, 'maximum translation along y-axis'
 ############################
 
 flags.DEFINE_boolean('print_error', False, 'consider printing error for textures')
-flags.DEFINE_boolean('photo_error', True, 'consider photography error for images')
+flags.DEFINE_boolean('photo_error', False, 'consider photography error for images')
 
 flags.DEFINE_float('background_min', 0.1, 'minimum rgb value for background')
 flags.DEFINE_float('background_max', 1.0, 'maximum rgb value for background')

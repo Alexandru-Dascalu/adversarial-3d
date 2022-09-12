@@ -11,7 +11,7 @@ tf.config.set_logical_device_configuration(
 from PIL import Image
 from renderer import Renderer
 from net import AdversarialNet
-from config import cfg, BATCH_SIZE, OBJ_PATH, TEXTURE_PATH
+from config import cfg, BATCH_SIZE, OBJ_PATH, TEXTURE_PATH, TARGET_LABEL, NAME
 
 FILE_LOGGING_ENABLED = False
 
@@ -62,7 +62,7 @@ def main():
             # optimise adversarial texture
             model.optimisation_step(uv_mappings)
 
-            if i % 100 == 0:
+            if i % 200 == 0:
                 log_training_to_console(model, i)
             if FILE_LOGGING_ENABLED:
                 log_training_to_file(model, log_writer, i)
@@ -71,7 +71,7 @@ def main():
             if i % 200 == 0 or i == (cfg.iterations - 1):
                 adv_texture = np.rint(model.adv_texture.numpy() * 255)
                 adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
-                adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
+                adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, NAME,TARGET_LABEL, i))
 
         plot_training_history(model)
 
