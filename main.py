@@ -58,8 +58,8 @@ def main():
             if FILE_LOGGING_ENABLED:
                 log_training_to_file(model, log_writer, i)
 
-            # save intermediate adversarial textures
-            if i % 200 == 0:
+            # save intermediate adversarial textures, or the texture for the very last step
+            if i % 200 == 0 or i == (cfg.iterations - 1):
                 adv_texture = np.rint(model.adv_texture.numpy() * 255)
                 adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
                 adv_texture.save('{}/adv_{}.jpg'.format(cfg.image_dir, i))
