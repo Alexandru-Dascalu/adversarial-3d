@@ -9,7 +9,7 @@ flags = tf.compat.v1.flags
 
 BATCH_SIZE = 8
 flags.DEFINE_float('batch_reuse_ratio', 0.8, 'percentage of batch samples that are reused in the next iteration')
-flags.DEFINE_integer('iterations', 8000, 'iterations')
+flags.DEFINE_integer('iterations', 10000, 'iterations')
 flags.DEFINE_float('learning_rate', 0.003, 'initial learning rate')
 flags.DEFINE_float('l2_weight', 0.025, 'the weighting factor for l2 loss')
 # 463 - broom
