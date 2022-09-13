@@ -115,14 +115,14 @@ def plot_training_history(adv_model):
     plt.plot(total_loss, label="Total Loss")
     plt.xlabel("Steps")
     plt.ylabel("Loss")
-    plt.title("Loss during training")
+    plt.title("Loss during training, {}, target {}".format(config.NAME, config.TARGET_LABEL))
     plt.legend()
     plt.show()
 
     plt.plot(adv_model.tfr_history, label="TFR")
     plt.xlabel("Steps")
     plt.ylabel("Accuracy")
-    plt.title("TFR during training")
+    plt.title("TFR during training, {}, target {}".format(config.NAME, config.TARGET_LABEL))
     plt.show()
 
 
