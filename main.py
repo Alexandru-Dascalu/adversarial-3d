@@ -75,6 +75,7 @@ def main():
                 adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, i))
 
             if average_loss_under_threshold(model):
+
                 break
 
         plot_training_history(model)
@@ -91,7 +92,11 @@ def average_loss_under_threshold(model):
     loss_sum = loss_sum / 5
     average_loss =  loss_sum / num_last_steps
 
-    return average_loss < 0.4
+    if average_loss < 0.5:
+        print("Early Stopping, average loss over past {} steps is {}".format(num_last_steps, average_loss))
+        return True
+    else:
+        return False
 
 
 def log_training_to_console(model, step):
