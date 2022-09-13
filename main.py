@@ -70,12 +70,11 @@ def main():
 
             # save intermediate adversarial textures, or the texture for the very last step
             if i % 200 == 0 or i == (cfg.iterations - 1):
-                adv_texture = np.rint(model.adv_texture.numpy() * 255)
-                adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
-                adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, i))
+                save_adv_texture(model)
 
             if average_loss_under_threshold(model):
-
+                # make sure to save the current adversarial texture before early stopping
+                save_adv_texture(model)
                 break
 
         plot_training_history(model)
@@ -97,6 +96,10 @@ def average_loss_under_threshold(model):
     else:
         return False
 
+def save_adv_texture(model):
+    adv_texture = np.rint(model.adv_texture.numpy() * 255)
+    adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
+    adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, i))
 
 def log_training_to_console(model, step):
     print("Step: {}".format(step))
