@@ -47,12 +47,12 @@ def main():
         # create the adversarial texture model that will be optimised. Holds all relevant tensors.
         model = AdversarialNet(texture)
 
-        num_new_renders = int(np.ceil(BATCH_SIZE * (1 - cfg.batch_reuse_ratio)))
+        num_new_renders = int(np.ceil(config.BATCH_SIZE * (1 - cfg.batch_reuse_ratio)))
         print("New renders for each step: {}".format(num_new_renders))
         for i in range(cfg.iterations):
             # UV mapping is a numpy array of shape batch_size x texture_width x texture_height x 2
             if i == 0:
-                uv_mappings = renderer.render(BATCH_SIZE)
+                uv_mappings = renderer.render(config.BATCH_SIZE)
             else:
                 uv_mappings = renderer.render(num_new_renders)
 

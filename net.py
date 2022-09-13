@@ -3,7 +3,8 @@ import tensorflow_addons as tfa
 import numpy as np
 import skimage.color
 
-from config import cfg, BATCH_SIZE, TARGET_LABEL
+from config import cfg
+import config
 
 
 class AdversarialNet(tf.Module):
@@ -26,12 +27,12 @@ class AdversarialNet(tf.Module):
         # Initialise tensors that will hold the current batch of rendered images with normal and adversarial textures
         # with a batch size of 12, each of these take up around 13 MB once the images are actually rendered, if the
         # resolution is just 299x299
-        batch_tensor_size = (BATCH_SIZE, 299, 299, 3)
+        batch_tensor_size = (config.BATCH_SIZE, 299, 299, 3)
         self.std_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
         self.adv_images = tf.zeros(batch_tensor_size, dtype=tf.dtypes.float32)
 
         self.uv_mapping = tf.zeros((1,))
-        self.logits = tf.zeros((BATCH_SIZE, 1000))
+        self.logits = tf.zeros((config.BATCH_SIZE, 1000))
         self.top_k_predictions = []
 
         self.main_loss_history = []
@@ -73,7 +74,7 @@ class AdversarialNet(tf.Module):
         _, self.top_k_predictions = tf.nn.top_k(tf.nn.softmax(self.logits), k=5)
 
         # Calculate cross entropy loss for predictions
-        labels = tf.constant(TARGET_LABEL, dtype=tf.int64, shape=[BATCH_SIZE])
+        labels = tf.constant(config.TARGET_LABEL, dtype=tf.int64, shape=[config.BATCH_SIZE])
         cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
             labels=labels, logits=self.logits)
 
@@ -355,8 +356,8 @@ class AdversarialNet(tf.Module):
     def get_tfr(self):
         target_reached = 0
         for top_prediction in self.top_k_predictions[:, 0]:
-            if top_prediction == TARGET_LABEL:
+            if top_prediction == config.TARGET_LABEL:
                 target_reached += 1
 
-        tfr = target_reached / BATCH_SIZE
+        tfr = target_reached / config.BATCH_SIZE
         return tfr
