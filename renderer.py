@@ -5,6 +5,7 @@ from PIL import Image
 from pyrr import Matrix44
 import numpy as np
 
+SAVE_RENDER = False
 
 class Renderer(object):
 
@@ -220,8 +221,9 @@ class Renderer(object):
             self.mvp.write(transform.astype('f4').tobytes())
             self.vao.render()
 
-            Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
-                'training_renders/scene_{}.jpg'.format(i))
+            if SAVE_RENDER:
+                Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1).save(
+                    'training_renders/scene_{}.jpg'.format(i))
 
             framebuffer = self.fbo.read(components=2, dtype='f4')
             warp[i] = np.frombuffer(framebuffer, dtype=np.float32).reshape(
