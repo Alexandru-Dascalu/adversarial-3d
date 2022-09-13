@@ -89,7 +89,6 @@ def average_loss_under_threshold(model):
 
     num_last_steps = 400
     loss_sum = sum(model.main_loss_history[-num_last_steps:])
-    loss_sum = loss_sum / 5
     average_loss =  loss_sum / num_last_steps
 
     if average_loss < 0.5:
