@@ -74,10 +74,24 @@ def main():
                 adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
                 adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, i))
 
+            if average_loss_under_threshold(model):
+                break
+
         plot_training_history(model)
 
     if log_writer is not None:
         log_writer.close()
+
+def average_loss_under_threshold(model):
+    if len(model.main_loss_history) < 400:
+        return False
+
+    num_last_steps = 400
+    loss_sum = sum(model.main_loss_history[-num_last_steps:])
+    loss_sum = loss_sum / 5
+    average_loss =  loss_sum / num_last_steps
+
+    return average_loss < 0.4
 
 
 def log_training_to_console(model, step):
