@@ -5,7 +5,7 @@ adv_textures/
 training_renders/
 evaluation_images/
 
-experiments.ipynb
+*.ipynb
 
 ### OSX ###
 *.DS_Store
