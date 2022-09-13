@@ -11,24 +11,25 @@ tf.config.set_logical_device_configuration(
 from PIL import Image
 from renderer import Renderer
 from net import AdversarialNet
-from config import cfg, BATCH_SIZE, OBJ_PATH, TEXTURE_PATH, TARGET_LABEL, NAME
+import config
+from config import cfg
 
 FILE_LOGGING_ENABLED = False
 
 
 def main():
-    texture = Image.open(TEXTURE_PATH)
+    texture = Image.open(config.TEXTURE_PATH)
     height, width = texture.size
 
     assert height == width
     if height == 1024:
-        BATCH_SIZE = 40
+        BATCH_SIZE = 4
     elif height == 2048:
-        BATCH_SIZE = 30
+        BATCH_SIZE = 4
     else:
         raise ValueError("invalid texture size!")
 
-    renderer = Renderer(OBJ_PATH, (299, 299))
+    renderer = Renderer(config.OBJ_PATH, (299, 299))
     renderer.set_parameters(
         camera_distance=(cfg.camera_distance_min, cfg.camera_distance_max),
         x_translation=(cfg.x_translation_min, cfg.x_translation_max),
@@ -71,7 +72,7 @@ def main():
             if i % 200 == 0 or i == (cfg.iterations - 1):
                 adv_texture = np.rint(model.adv_texture.numpy() * 255)
                 adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
-                adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, NAME,TARGET_LABEL, i))
+                adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, i))
 
         plot_training_history(model)
 
