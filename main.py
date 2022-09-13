@@ -70,11 +70,12 @@ def main():
 
             # save intermediate adversarial textures, or the texture for the very last step
             if i % 200 == 0 or i == (cfg.iterations - 1):
-                save_adv_texture(model)
+                save_adv_texture(model, i)
 
+            # check if the average loss in the last 400 steps is low enough to stop optimisation early
             if average_loss_under_threshold(model):
                 # make sure to save the current adversarial texture before early stopping
-                save_adv_texture(model)
+                save_adv_texture(model, i)
                 break
 
         plot_training_history(model)
@@ -90,13 +91,13 @@ def average_loss_under_threshold(model):
     loss_sum = sum(model.main_loss_history[-num_last_steps:])
     average_loss =  loss_sum / num_last_steps
 
-    if average_loss < 0.5:
+    if average_loss < cfg.loss_early_stopping_threshold:
         print("Early Stopping, average loss over past {} steps is {}".format(num_last_steps, average_loss))
         return True
     else:
         return False
 
-def save_adv_texture(model):
+def save_adv_texture(model, i):
     adv_texture = np.rint(model.adv_texture.numpy() * 255)
     adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
     adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, i))
