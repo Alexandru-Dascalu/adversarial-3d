@@ -160,13 +160,13 @@ class AdversarialNet(tf.Module):
         if cfg.print_error:
             std_texture, adv_texture = AdversarialNet.apply_print_error(self.std_texture, self.adv_texture)
         else:
-            # tfa.resampler requires input to be in shape batch_size x height x width x channels, so we insert a new
-            # dimension
-            std_texture = tf.expand_dims(self.std_texture, axis=0)
-            adv_texture = tf.expand_dims(self.adv_texture, axis=0)
+            std_texture = self.std_texture
+            adv_texture = self.adv_texture
 
-        # tfa.image.resampler requires the first dimension of UV map to be
-        # batch size, so we add an extra dimension with one element
+        # tfa.resampler requires input to be in shape batch_size x height x width x channels, so we insert a new
+        # dimension
+        std_texture = tf.expand_dims(std_texture, axis=0)
+        adv_texture = tf.expand_dims(adv_texture, axis=0)
         image_uv_map = np.expand_dims(uv_mapping, axis=0)
 
         # use UV mapping to create an images corresponding to an individual render by sampling from the texture
@@ -214,12 +214,12 @@ class AdversarialNet(tf.Module):
     @staticmethod
     def apply_print_error(std_texture, adv_texture):
         multiplier = tf.random.uniform(
-            [1, 1, 1, 3],
+            [1, 1, 3],
             cfg.channel_mult_min,
             cfg.channel_mult_max
         )
         addend = tf.random.uniform(
-            [1, 1, 1, 3],
+            [1, 1, 3],
             cfg.channel_add_min,
             cfg.channel_add_max
         )
