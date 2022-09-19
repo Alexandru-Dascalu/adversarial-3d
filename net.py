@@ -180,8 +180,7 @@ class AdversarialNet(tf.Module):
         """Colours the background pixels of the image with a random colour.
         """
         # compute a mask with True values for each pixel which represents the object, and False for background pixels.
-        mask = tf.reduce_all(
-            input_tensor=tf.not_equal(self.uv_mapping, 0.0), axis=3, keepdims=True)
+        mask = tf.reduce_all(tf.not_equal(self.uv_mapping, 0.0), axis=3, keepdims=True)
         # generate random background colour for each image in batch
         num_new_renders = new_std_images.shape[0]
         color = tf.random.uniform(
