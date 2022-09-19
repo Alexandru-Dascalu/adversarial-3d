@@ -304,16 +304,20 @@ class AdversarialNet(tf.Module):
         return tf.add(tf.multiply(a, x), b)
 
     @staticmethod
-    def normalize(x, y):
-        minimum = tf.minimum(tf.reduce_min(input_tensor=x, axis=[1, 2, 3], keepdims=True),
-                             tf.reduce_min(input_tensor=y, axis=[1, 2, 3], keepdims=True))
-        maximum = tf.maximum(tf.reduce_max(input_tensor=x, axis=[1, 2, 3], keepdims=True),
-                             tf.reduce_max(input_tensor=y, axis=[1, 2, 3], keepdims=True))
+    def normalize(std_images, adv_images):
+        std_images_minimums = tf.reduce_min(std_images, axis=[1, 2, 3], keepdims=True)
+        adv_images_minimums = tf.reduce_min(adv_images, axis=[1, 2, 3], keepdims=True)
+
+        std_images_maximums = tf.reduce_max(std_images, axis=[1, 2, 3], keepdims=True)
+        adv_images_maximums = tf.reduce_max(adv_images, axis=[1, 2, 3], keepdims=True)
+
+        minimum = tf.minimum(std_images_minimums, adv_images_minimums)
+        maximum = tf.maximum(std_images_maximums, adv_images_maximums)
 
         minimum = tf.minimum(minimum, 0)
         maximum = tf.maximum(maximum, 1)
 
-        return (x - minimum) / (maximum - minimum), (y - minimum) / (maximum - minimum)
+        return (std_images - minimum) / (maximum - minimum), (adv_images - minimum) / (maximum - minimum)
 
     @staticmethod
     def get_normalised_lab_image(rgb_images):
