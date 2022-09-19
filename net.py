@@ -243,7 +243,7 @@ class AdversarialNet(tf.Module):
         adv_images = AdversarialNet.transform(adv_images, multiplier, addend)
 
         gaussian_noise = tf.random.truncated_normal(
-            tf.shape(input=std_images),
+            shape=tf.shape(std_images),
             stddev=tf.random.uniform([1], maxval=cfg.stddev)
         )
 
