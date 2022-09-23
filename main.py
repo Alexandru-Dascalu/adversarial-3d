@@ -29,12 +29,13 @@ def main():
     else:
         raise ValueError("invalid texture size!")
 
-    renderer = Renderer(config.OBJ_PATH, (299, 299))
+    renderer = Renderer((299, 299))
     renderer.set_parameters(
         camera_distance=(cfg.camera_distance_min, cfg.camera_distance_max),
         x_translation=(cfg.x_translation_min, cfg.x_translation_max),
         y_translation=(cfg.y_translation_min, cfg.y_translation_max)
     )
+    renderer.load_obj(config.OBJ_PATH)
 
     # convert image to numpy array and normalise it to values between 0 and 1
     texture = np.asarray(texture).astype(np.float32)[..., :3] / 255.0

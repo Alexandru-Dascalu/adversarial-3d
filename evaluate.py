@@ -1,216 +1,158 @@
-from pyrr import Matrix44
-import moderngl
-from objloader import Obj
 import os
+
 import numpy as np
 import tensorflow as tf
 from PIL import Image
 
+import data
+import diff_rendering
 import renderer
-from config import cfg, TARGET_LABEL, TRUE_LABELS
+from config import cfg
+from statistics import mean
+
+decode_predictions = tf.keras.applications.imagenet_utils.decode_predictions
+
+def render_image_for_texture(std_texture, adv_texture, renderer):
+    width = std_texture.shape[1]
+    height = std_texture.shape[0]
+
+    uv_map = renderer.render(1)
+    uv_map = uv_map * np.asarray([width - 1, height - 1], dtype=np.float32)
+
+    std_image, adv_image = diff_rendering.render(std_texture, adv_texture, uv_map)
+
+    # convert tensors to numpy arrays and discard the batch dimension
+    std_image = std_image.numpy()[0]
+    adv_image = adv_image.numpy()[0]
+
+    return std_image, adv_image
+
+def save_rendered_images(std_image, adv_image, model_name, target_label, num_image):
+    if not os.path.exists('./evaluation_images/normal/{}'.format(model_name)):
+        os.makedirs('./evaluation_images/normal/{}'.format(model_name))
+
+    if not os.path.exists('./evaluation_images/normal/{}/{}'.format(model_name, target_label)):
+        os.makedirs('./evaluation_images/normal/{}/{}'.format(model_name, target_label))
+
+    if not os.path.exists('./evaluation_images/adv/{}'.format(model_name)):
+        os.makedirs('./evaluation_images/adv/{}'.format(model_name))
+
+    if not os.path.exists('./evaluation_images/adv/{}/{}'.format(model_name, target_label)):
+        os.makedirs('./evaluation_images/adv/{}/{}'.format(model_name, target_label))
+
+    # Pillow only accepts numpy arrays with integer values as valid images
+    std_image = (std_image * 255).astype('uint8')
+    adv_image = (adv_image * 255).astype('uint8')
+
+    Image.fromarray(std_image, 'RGB').save('./evaluation_images/normal/{}/{}/image_{}.jpg'.format(
+        model_name, target_label, num_image))
+    Image.fromarray(adv_image, 'RGB').save('./evaluation_images/adv/{}/{}/image_{}.jpg'.format(
+        model_name, target_label, num_image))
+
+def get_tfr_and_accuracy(model, target_label, predictions):
+    label_predictions = [np.argmax(prediction) for prediction in predictions]
+    predictions = decode_predictions(predictions)
+
+    accuracy = mean([is_prediction_true(model.labels, predicted_label) for predicted_label in label_predictions])
+    tfr = sum([target_label == predicted_label for predicted_label in label_predictions])
+    tfr  = tfr / len(label_predictions)
+
+    return accuracy, tfr
+
+def is_prediction_true(true_labels, predicted_label):
+    if true_labels == "dog":
+        # dog model has all 120 dog breed and dog-like animals as true labels
+        if 150 < predicted_label < 276:
+            return True
+    # even if object only has one true label, it is still represented as a list with just one element
+    elif type(true_labels) == list:
+        if predicted_label in true_labels:
+            return True
+    else:
+        raise ValueError("true labels list for a sample should be either \"dog\" or a list of ints.")
+
+    # if it has not returned so far, then the prediction is incorrect
+    return False
+
+def parse_adv_texture_file_name(file_name):
+    # removed extension from image file name
+    file_name, _ = os.path.splitext(file_name)
+    file_name_split = file_name.split('_')
+
+    target_label = int(file_name_split[-3])
+    num_steps = int(file_name_split[-1])
+
+    index_first_digit = get_index_first_digit(file_name)
+    # before the first digit in the file name, there is an underscore, which is not part of the name. Therefore we
+    # slice until index_first_digit - 1
+    model_name = file_name[:(index_first_digit - 1)]
+
+    return model_name, target_label, num_steps
 
 
-class TextureRenderer:
-    window_size = (1199, 1199)
-    sample_size = 200
-    aspect_ratio = 1
-
-    resource_dir = os.path.normpath(os.path.join(__file__, '../'))
-    texture_path = 'image_dir/adv_1980.jpg'
-    obj_path = '3d_model/barrel.obj'
-    output_path = "adv"
-
-    def __init__(self):
-        self.ctx = moderngl.create_standalone_context(require=330)
-        self.ctx.enable(moderngl.DEPTH_TEST)
-
-        self.fbo = self.ctx.framebuffer(
-            [self.ctx.renderbuffer(TextureRenderer.window_size)],
-            self.ctx.depth_renderbuffer(TextureRenderer.window_size)
-        )
-
-        self.prog = self.ctx.program(
-            vertex_shader='''
-                #version 330
-
-                uniform mat4 Mvp;
-
-                in vec3 in_vert;
-                in vec2 in_text;
-                in vec3 in_norm;
-
-                out vec3 v_vert;
-                out vec3 v_norm;
-                out vec2 v_text_coord;
-
-                void main() {
-                    v_vert = in_vert;
-                    v_norm = in_norm;
-                    v_text_coord = in_text;
-                    gl_Position = Mvp * vec4(v_vert, 1.0);
-                }
-            ''',
-            fragment_shader='''
-                #version 330
-
-                uniform sampler2D Texture;
-                uniform vec4 Color;
-
-                in vec3 v_vert;
-                in vec2 v_text_coord;
-
-                out vec4 f_color;
-
-                void main() {
-                    vec3 color = texture(Texture, v_text_coord).rgb;
-                    color = color * (1.0 - Color.a) + Color.rgb * Color.a;
-                    f_color = vec4(color, 1.0);
-                }
-            ''',
-        )
-
-        self.texture = self.load_texture(TextureRenderer.texture_path)
-        self.vao = []
-        self.load_obj(TextureRenderer.obj_path)
-
-        self.color = self.prog['Color']
-        self.color.value = (1.0, 1.0, 1.0, 0.0)
-        self.mvp = self.prog['Mvp']
-
-    def load_obj(self, file_path):
-        """
-        Load 3D model from .obj file and create vertex array based on it.
-
-        Parameters
-        ----------
-        file_path : string
-            Path to .obj file of the object that will be rendered.
-        """
-        if not os.path.isfile(file_path):
-            print('{} is not an existing regular file!'.format(file_path))
-            return
-
-        obj = Obj.open(file_path)
-
-        vbo = self.ctx.buffer(obj.pack('vx vy vz tx ty'))
-        # TODO: not very efficient, consider using an element index array later
-        self.vao = self.ctx.simple_vertex_array(
-            self.prog,
-            vbo,
-            "in_vert", "in_text"
-        )
-
-    def load_texture(self, path):
-        texture_image = Image.open(path)
-        texture_image = texture_image.transpose(Image.FLIP_TOP_BOTTOM)
-        texture_size = texture_image.size
-
-        raw_image = texture_image.tobytes()
-        texture_image.close()
-
-        return self.ctx.texture(texture_size, 3, raw_image)
-
-    def render(self):
-        for i in range(TextureRenderer.sample_size):
-            self.ctx.clear(1.0, 1.0, 1.0)
-
-            rotation = Matrix44.from_matrix33(
-                renderer.Renderer.rand_rotation_matrix()
-            )
-            translation = Matrix44.from_translation((
-                np.random.uniform(-0.05, 0.05),
-                np.random.uniform(-0.05, 0.05),
-                0
-            ))
-            proj = Matrix44.perspective_projection(45.0, self.aspect_ratio, 0.1, 1000.0)
-            lookat = Matrix44.look_at(
-                (0.1, 0, np.random.uniform(1.8, 2.3)),
-                (0, 0, 0),
-                (0.0, 1.0, 0.0),
-            )
-
-            self.fbo.use()
-            self.fbo.clear(0.0, 0.0, 0.0, 1.0)
-
-            self.mvp.write((proj * lookat * translation * rotation).astype('f4'))
-
-            self.texture.use()
-            self.vao.render()
-
-            image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
-            image.save('evaluation_images/{}/image_{}.jpg'.format(TextureRenderer.output_path, i))
-
-    @classmethod
-    def run(cls):
-        loader = TextureRenderer()
-        loader.render()
+def get_index_first_digit(string):
+    for i, character in enumerate(string):
+        if character.isdigit():
+            return i
+    raise ValueError("The given string is expectde to have numbers in it!")
 
 
-def evaluate(folder):
-    data = tf.keras.preprocessing.image_dataset_from_directory(
-        'evaluation_images/{}'.format(folder),
-        labels=None,
-        label_mode=None,
-        image_size=(299, 299),
-        batch_size=None)
+if __name__ == '__main__':
+    models = data.load_dataset("./dataset")
 
-    normalization_layer = tf.keras.layers.Rescaling(1. / 255)
-    data = np.asarray([normalization_layer(image_batch) for image_batch in data])
+    uv_renderer = renderer.Renderer((299, 299))
+    uv_renderer.set_parameters(
+        camera_distance=(cfg.camera_distance_min, cfg.camera_distance_max),
+        x_translation=(cfg.x_translation_min, cfg.x_translation_max),
+        y_translation=(cfg.y_translation_min, cfg.y_translation_max)
+    )
 
-    model = tf.keras.applications.inception_v3.InceptionV3(
+    victim_model = tf.keras.applications.inception_v3.InceptionV3(
         include_top=True,
         weights='imagenet',
         classes=1000,
         classifier_activation='softmax'
     )
-    model.compile(optimizer='adam',
-                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                  metrics=['accuracy'])
+    victim_model.compile(optimizer='adam',
+                         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                         metrics=['accuracy'])
+    normalization_layer = tf.keras.layers.Rescaling(scale=1. / 127.5, offset=-1)
 
-    correct_test_labels = np.asarray(TRUE_LABELS * TextureRenderer.sample_size)
-    adv_test_labels = np.asarray([TARGET_LABEL] * TextureRenderer.sample_size)
+    for image_file_name in os.listdir("./adv_textures"):
+        adv_texture = data.Model3D._get_texture("./adv_textures/{}".format(image_file_name))
 
-    predictions = model.predict(data, batch_size=1)
-    print([np.argmax(prediction) for prediction in predictions])
+        # extract information from file name of adversarial texture, inclduing which model and target label is the
+        # texture for
+        current_model_name, current_target_label, num_steps = parse_adv_texture_file_name(image_file_name)
 
-    _, accuracy = model.evaluate(data, correct_test_labels,  batch_size=1)
-    print("Normal accuracy: {}".format(accuracy * 100))
+        # find the model that the adversarial texture was made for
+        current_model = next(x for x in models if x.name == current_model_name)
+        # get the normal texture of the model
+        std_texture = current_model.raw_texture
+        # load the appropriate model into the renderer
+        uv_renderer.load_obj(current_model.obj_path)
 
-    _, accuracy = model.evaluate(data, adv_test_labels, batch_size=1)
-    print("Target label accuracy: {}".format(accuracy * 100))
+        print("Creating evaluation renders for model {}, target label {}".format(current_model_name,
+                                                                                 current_target_label))
+        std_images = []
+        adv_images = []
+        for i in range(100):
+            std_image, adv_image = render_image_for_texture(std_texture, adv_texture, uv_renderer)
+            std_images.append(std_image)
+            adv_images.append(adv_image)
 
+            save_rendered_images(std_image, adv_image, current_model_name, current_target_label, i)
 
-def get_top_k_predictions(predictions, k=5):
-    assert len(predictions) == TextureRenderer.sample_size
+        # convert list of numpy images to one single numpy array
+        std_images = np.stack(std_images, axis=0)
+        adv_images = np.stack(adv_images, axis=0)
+        # scale images from 0 to 1 values to values between -1 and 1
+        std_images = 2 * std_images - 1
+        adv_images = 2 * adv_images - 1
 
-    count_dict = dict()
-    unique_predictions = set()
-    for prediction in predictions:
-        unique_predictions.add(prediction)
-        if prediction in count_dict:
-            count_dict[prediction] += 1
-        else:
-            count_dict[prediction] = 1
+        predictions = victim_model.predict(std_images, batch_size=1)
+        tfr, accuracy = get_tfr_and_accuracy(current_model, current_target_label, predictions)
+        predictions = victim_model.predict(adv_images, batch_size=1)
+        tfr, accuracy = get_tfr_and_accuracy(current_model, current_target_label, predictions)
 
-    sorted_predictions = list(unique_predictions)
-    sorted_predictions.sort(key=lambda x: -count_dict[x])
-    return sorted_predictions[:k]
-
-
-if __name__ == '__main__':
-    print(tf.config.list_physical_devices('GPU'))
-    print(tf.test.is_gpu_available())
-    print(tf.test.is_built_with_cuda())
-
-    print("Adversarial texture:")
-    TextureRenderer.texture_path = 'adv_textures/adv_1980.jpg'
-    TextureRenderer.obj_path = 'dataset/barrel/barrel.obj'
-    TextureRenderer.output_path = 'adv'
-    TextureRenderer.run()
-    evaluate(TextureRenderer.output_path)
-
-    print("Normal texture:")
-    TextureRenderer.texture_path = 'dataset/barrel/barrel.jpg'
-    TextureRenderer.output_path = 'normal'
-    TextureRenderer.run()
-    evaluate(TextureRenderer.output_path)
+        print("test")

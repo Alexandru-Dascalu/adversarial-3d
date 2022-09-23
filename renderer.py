@@ -7,9 +7,10 @@ import numpy as np
 
 SAVE_RENDER = False
 
+
 class Renderer(object):
 
-    def __init__(self, model_path, viewport=(299, 299)):
+    def __init__(self, viewport=(299, 299)):
         """
         Construct a Renderer object used to compute the UV mapping for a certain 3D model, in a certain pose with a
         random rotation, translation, camera distance, background, photo error and texture printing error. These random
@@ -17,8 +18,6 @@ class Renderer(object):
 
         Parameters
         ----------
-        model_path : string
-            Path to .obj file of the object that will be rendered.
         viewport : tuple(int, int)
             width and height of the rendered image.
         """
@@ -77,8 +76,6 @@ class Renderer(object):
         # get reference to uniform pointing to Model View Projection Matrix
         self.mvp = self.prog["mvp"]
         self.vao = []
-
-        self.load_obj(model_path)
 
     def load_obj(self, file_path):
         """
