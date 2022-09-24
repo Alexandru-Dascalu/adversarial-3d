@@ -69,6 +69,7 @@ def save_rendered_images(std_image, adv_image, model_name, target_label, num_ima
     Image.fromarray(adv_image, 'RGB').save('./evaluation_images/adv/{}/{}/image_{}.jpg'.format(
         model_name, target_label, num_image))
 
+
 def get_tfr_and_accuracy(model, target_label, predictions):
     label_predictions = [np.argmax(prediction) for prediction in predictions]
 
@@ -81,7 +82,7 @@ def get_tfr_and_accuracy(model, target_label, predictions):
     return accuracy, tfr
 
 
-def save_result(result_dict, result, model_name, target_label, is_adversarial):
+def save_result(result_dict, result, model_name, target_label, tfr):
     """
     Save tfr or accuracy evaluation result to a dictionary based on the model and target label of the texture that was
     evaluated.
@@ -95,10 +96,48 @@ def save_result(result_dict, result, model_name, target_label, is_adversarial):
         result_dict[model_name][target_label] = dict()
 
     # the tfr/accuracy result may be for images with either the normal texture or the adversarial one
-    if is_adversarial:
-        result_dict[model_name][target_label]['adv'] = result
+    if tfr:
+        result_dict[model_name][target_label]['tfr'] = result
     else:
-        result_dict[model_name][target_label]['normal'] = result
+        result_dict[model_name][target_label]['accuracy'] = result
+
+
+def flatten_dict(result_dict, for_tfr):
+    result_list = []
+    for model in result_dict:
+        for target_label in result_dict[model]:
+            if for_tfr:
+                result_list.append(result_dict[model][target_label]['tfr'])
+            else:
+                result_list.append(result_dict[model][target_label]['accuracy'])
+
+    return result_list
+
+def get_average_metric(results_dict, for_tfr):
+    metric_sum = 0
+    metric_count = 0
+
+    for model_name in results_dict:
+        metric_sum += get_average_metric_for_model(results_dict, model_name, for_tfr)
+        metric_count += 1
+
+    average = metric_sum / metric_count
+    return average
+
+
+def get_average_metric_for_model(results_dict, model_name, for_tfr):
+    metric_sum = 0
+    metric_count = 0
+
+    for target_label in results_dict[model_name]:
+        if for_tfr:
+            metric_sum += results_dict[model_name][target_label]['tfr']
+        else:
+            metric_sum += results_dict[model_name][target_label]['accuracy']
+        metric_count += 1
+
+    average = metric_sum / metric_count
+    return average
 
 
 def is_prediction_true(true_labels, predicted_label):
@@ -168,8 +207,8 @@ def main():
 
     # dictionaries used to record results of the evaluation. Each dict has sub-dictionaries for each model and
     # target label
-    tfr_results = dict()
-    accuracy_results = dict()
+    normal_results = dict()
+    adv_results = dict()
 
     for image_file_name in os.listdir("./adv_textures"):
         adv_texture = data.Model3D._get_texture("./adv_textures/{}".format(image_file_name))
@@ -194,19 +233,27 @@ def main():
         predictions = victim_model.predict(std_images, batch_size=1)
         accuracy, tfr = get_tfr_and_accuracy(current_model, current_target_label, predictions)
         # record results in dictionary and on the command line
-        save_result(tfr_results, tfr, current_model_name, current_target_label, is_adversarial=False)
-        save_result(accuracy_results, accuracy, current_model_name, current_target_label, is_adversarial=False)
+        save_result(normal_results, tfr, current_model_name, current_target_label, tfr=True)
+        save_result(normal_results, accuracy, current_model_name, current_target_label, tfr=False)
         print("Evaluating normal images: TFR: {}, Accuracy: {}".format(tfr, accuracy))
 
         # evaluate renders with the adversarial image
         predictions = victim_model.predict(adv_images, batch_size=1)
         accuracy, tfr = get_tfr_and_accuracy(current_model, current_target_label, predictions)
         # record results in dictionary and on the command line
-        save_result(tfr_results, tfr, current_model_name, current_target_label, is_adversarial=True)
-        save_result(accuracy_results, accuracy, current_model_name, current_target_label, is_adversarial=True)
-        print("Evaluating adversarial images: TFR: {}, Accuracy: {}".format(tfr, accuracy))
+        save_result(adv_results, tfr, current_model_name, current_target_label, tfr=True)
+        save_result(adv_results, accuracy, current_model_name, current_target_label, tfr=False)
+        print("Evaluating adversarial images: TFR: {}, Accuracy: {}\n".format(tfr, accuracy))
 
+    print("Average accuracy for normal images: {}".format(get_average_metric(normal_results, for_tfr=False)))
+    print("Average TFR for normal images: {}".format(get_average_metric(normal_results, for_tfr=True)))
 
+    print("Average accuracy for adversarial images: {}".format(get_average_metric(adv_results, for_tfr=False)))
+    print("Average TFR for adversarial images: {}".format(get_average_metric(adv_results, for_tfr=True)))
+
+    for model_name in adv_results:
+        print("Average TFR for model {}: {}".format(model_name, get_average_metric_for_model(adv_results, model_name,
+                                                                                             for_tfr=True)))
 
 if __name__ == '__main__':
     main()
