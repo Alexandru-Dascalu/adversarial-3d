@@ -10,7 +10,6 @@ import renderer
 from config import cfg
 from imagenet_labels import imagenet_labels
 
-decode_predictions = tf.keras.applications.imagenet_utils.decode_predictions
 
 def render_images_for_texture(std_texture, adv_texture, uv_renderer, model_name, target_label):
     std_images = []
@@ -30,6 +29,7 @@ def render_images_for_texture(std_texture, adv_texture, uv_renderer, model_name,
     adv_images = 2 * adv_images - 1
 
     return std_images, adv_images
+
 
 def render_image_for_texture(std_texture, adv_texture, renderer):
     width = std_texture.shape[1]
