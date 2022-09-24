@@ -8,9 +8,28 @@ import data
 import diff_rendering
 import renderer
 from config import cfg
-from statistics import mean
+from imagenet_labels import imagenet_labels
 
 decode_predictions = tf.keras.applications.imagenet_utils.decode_predictions
+
+def render_images_for_texture(std_texture, adv_texture, uv_renderer, model_name, target_label):
+    std_images = []
+    adv_images = []
+    for i in range(100):
+        std_image, adv_image = render_image_for_texture(std_texture, adv_texture, uv_renderer)
+        std_images.append(std_image)
+        adv_images.append(adv_image)
+
+        save_rendered_images(std_image, adv_image, model_name, target_label, i)
+
+    # convert list of numpy images to one single numpy array
+    std_images = np.stack(std_images, axis=0)
+    adv_images = np.stack(adv_images, axis=0)
+    # scale images from 0 to 1 values to values between -1 and 1, as that is what neural networks expect
+    std_images = 2 * std_images - 1
+    adv_images = 2 * adv_images - 1
+
+    return std_images, adv_images
 
 def render_image_for_texture(std_texture, adv_texture, renderer):
     width = std_texture.shape[1]
@@ -26,6 +45,7 @@ def render_image_for_texture(std_texture, adv_texture, renderer):
     adv_image = adv_image.numpy()[0]
 
     return std_image, adv_image
+
 
 def save_rendered_images(std_image, adv_image, model_name, target_label, num_image):
     if not os.path.exists('./evaluation_images/normal/{}'.format(model_name)):
@@ -51,13 +71,35 @@ def save_rendered_images(std_image, adv_image, model_name, target_label, num_ima
 
 def get_tfr_and_accuracy(model, target_label, predictions):
     label_predictions = [np.argmax(prediction) for prediction in predictions]
-    predictions = decode_predictions(predictions)
 
-    accuracy = mean([is_prediction_true(model.labels, predicted_label) for predicted_label in label_predictions])
+    accuracy = sum([is_prediction_true(model.labels, predicted_label) for predicted_label in label_predictions])
+    accuracy = accuracy / len(label_predictions)
+
     tfr = sum([target_label == predicted_label for predicted_label in label_predictions])
     tfr  = tfr / len(label_predictions)
 
     return accuracy, tfr
+
+
+def save_result(result_dict, result, model_name, target_label, is_adversarial):
+    """
+    Save tfr or accuracy evaluation result to a dictionary based on the model and target label of the texture that was
+    evaluated.
+    """
+    # initialise sub-dictionary for that particular model
+    if model_name not in result_dict:
+        result_dict[model_name] = dict()
+
+    # initialise sub-dictionary for that particular target label in the sub-dictionary for the given model
+    if target_label not in result_dict[model_name]:
+        result_dict[model_name][target_label] = dict()
+
+    # the tfr/accuracy result may be for images with either the normal texture or the adversarial one
+    if is_adversarial:
+        result_dict[model_name][target_label]['adv'] = result
+    else:
+        result_dict[model_name][target_label]['normal'] = result
+
 
 def is_prediction_true(true_labels, predicted_label):
     if true_labels == "dog":
@@ -74,7 +116,11 @@ def is_prediction_true(true_labels, predicted_label):
     # if it has not returned so far, then the prediction is incorrect
     return False
 
+
 def parse_adv_texture_file_name(file_name):
+    """
+    Extracts useful information from the name of the files where the adversarial examples were saved.
+    """
     # removed extension from image file name
     file_name, _ = os.path.splitext(file_name)
     file_name_split = file_name.split('_')
@@ -91,15 +137,18 @@ def parse_adv_texture_file_name(file_name):
 
 
 def get_index_first_digit(string):
+    """
+    Returns index of the first digit to be found in a string.
+    """
     for i, character in enumerate(string):
         if character.isdigit():
             return i
     raise ValueError("The given string is expectde to have numbers in it!")
 
-
-if __name__ == '__main__':
+def main():
     models = data.load_dataset("./dataset")
 
+    # make renderer used for creating UV maps
     uv_renderer = renderer.Renderer((299, 299))
     uv_renderer.set_parameters(
         camera_distance=(cfg.camera_distance_min, cfg.camera_distance_max),
@@ -116,7 +165,11 @@ if __name__ == '__main__':
     victim_model.compile(optimizer='adam',
                          loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                          metrics=['accuracy'])
-    normalization_layer = tf.keras.layers.Rescaling(scale=1. / 127.5, offset=-1)
+
+    # dictionaries used to record results of the evaluation. Each dict has sub-dictionaries for each model and
+    # target label
+    tfr_results = dict()
+    accuracy_results = dict()
 
     for image_file_name in os.listdir("./adv_textures"):
         adv_texture = data.Model3D._get_texture("./adv_textures/{}".format(image_file_name))
@@ -132,27 +185,28 @@ if __name__ == '__main__':
         # load the appropriate model into the renderer
         uv_renderer.load_obj(current_model.obj_path)
 
-        print("Creating evaluation renders for model {}, target label {}".format(current_model_name,
-                                                                                 current_target_label))
-        std_images = []
-        adv_images = []
-        for i in range(100):
-            std_image, adv_image = render_image_for_texture(std_texture, adv_texture, uv_renderer)
-            std_images.append(std_image)
-            adv_images.append(adv_image)
+        print("Creating evaluation renders for model {}, target label {} ({})".format(
+            current_model_name, current_target_label, imagenet_labels[current_target_label]))
+        std_images, adv_images = render_images_for_texture(std_texture, adv_texture, uv_renderer, current_model_name,
+                                                           current_target_label)
 
-            save_rendered_images(std_image, adv_image, current_model_name, current_target_label, i)
-
-        # convert list of numpy images to one single numpy array
-        std_images = np.stack(std_images, axis=0)
-        adv_images = np.stack(adv_images, axis=0)
-        # scale images from 0 to 1 values to values between -1 and 1
-        std_images = 2 * std_images - 1
-        adv_images = 2 * adv_images - 1
-
+        # evaluate renders with the normal image
         predictions = victim_model.predict(std_images, batch_size=1)
-        tfr, accuracy = get_tfr_and_accuracy(current_model, current_target_label, predictions)
-        predictions = victim_model.predict(adv_images, batch_size=1)
-        tfr, accuracy = get_tfr_and_accuracy(current_model, current_target_label, predictions)
+        accuracy, tfr = get_tfr_and_accuracy(current_model, current_target_label, predictions)
+        # record results in dictionary and on the command line
+        save_result(tfr_results, tfr, current_model_name, current_target_label, is_adversarial=False)
+        save_result(accuracy_results, accuracy, current_model_name, current_target_label, is_adversarial=False)
+        print("Evaluating normal images: TFR: {}, Accuracy: {}".format(tfr, accuracy))
 
-        print("test")
+        # evaluate renders with the adversarial image
+        predictions = victim_model.predict(adv_images, batch_size=1)
+        accuracy, tfr = get_tfr_and_accuracy(current_model, current_target_label, predictions)
+        # record results in dictionary and on the command line
+        save_result(tfr_results, tfr, current_model_name, current_target_label, is_adversarial=True)
+        save_result(accuracy_results, accuracy, current_model_name, current_target_label, is_adversarial=True)
+        print("Evaluating adversarial images: TFR: {}, Accuracy: {}".format(tfr, accuracy))
+
+
+
+if __name__ == '__main__':
+    main()
