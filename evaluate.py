@@ -95,12 +95,27 @@ def save_result(result_dict, result, model_name, target_label, tfr):
     if target_label not in result_dict[model_name]:
         result_dict[model_name][target_label] = dict()
 
-    # the tfr/accuracy result may be for images with either the normal texture or the adversarial one
+    # we may want to either save the TFR of adversarial texture or its accuracy
     if tfr:
         result_dict[model_name][target_label]['tfr'] = result
     else:
         result_dict[model_name][target_label]['accuracy'] = result
 
+
+def save_num_steps(num_steps_dict, num_steps, model_name, target_label):
+    """
+    Save tfr or accuracy evaluation result to a dictionary based on the model and target label of the texture that was
+    evaluated.
+    """
+    # initialise sub-dictionary for that particular model
+    if model_name not in num_steps_dict:
+        num_steps_dict[model_name] = dict()
+
+    # initialise sub-dictionary for that particular target label in the sub-dictionary for the given model
+    if target_label not in num_steps_dict[model_name]:
+        num_steps_dict[model_name][target_label] = dict()
+
+    num_steps_dict[model_name][target_label] = num_steps
 
 def flatten_dict(result_dict, for_tfr):
     result_list = []
@@ -137,6 +152,18 @@ def get_average_metric_for_model(results_dict, model_name, for_tfr):
         metric_count += 1
 
     average = metric_sum / metric_count
+    return average
+
+
+def get_average_num_steps(num_steps_dict, model_name):
+    num_steps_sum = 0
+    num_steps_count = 0
+
+    for target_label in num_steps_dict[model_name]:
+        num_steps_sum += num_steps_dict[model_name][target_label]
+        num_steps_count += 1
+
+    average = num_steps_sum / num_steps_count
     return average
 
 
@@ -209,6 +236,7 @@ def main():
     # target label
     normal_results = dict()
     adv_results = dict()
+    num_steps_dict = dict()
 
     for image_file_name in os.listdir("./adv_textures"):
         adv_texture = data.Model3D._get_texture("./adv_textures/{}".format(image_file_name))
@@ -216,6 +244,7 @@ def main():
         # extract information from file name of adversarial texture, inclduing which model and target label is the
         # texture for
         current_model_name, current_target_label, num_steps = parse_adv_texture_file_name(image_file_name)
+        save_num_steps(num_steps_dict, num_steps, current_model_name, current_target_label)
 
         # find the model that the adversarial texture was made for
         current_model = next(x for x in models if x.name == current_model_name)
@@ -249,11 +278,13 @@ def main():
     print("Average TFR for normal images: {}".format(get_average_metric(normal_results, for_tfr=True)))
 
     print("Average accuracy for adversarial images: {}".format(get_average_metric(adv_results, for_tfr=False)))
-    print("Average TFR for adversarial images: {}".format(get_average_metric(adv_results, for_tfr=True)))
+    print("Average TFR for adversarial images: {}\n".format(get_average_metric(adv_results, for_tfr=True)))
 
     for model_name in adv_results:
         print("Average TFR for model {}: {}".format(model_name, get_average_metric_for_model(adv_results, model_name,
                                                                                              for_tfr=True)))
+        print("Average iterations for creating adversarial examples for model {}: {}".format(
+            model_name, get_average_num_steps(num_steps_dict, model_name)))
 
 if __name__ == '__main__':
     main()
