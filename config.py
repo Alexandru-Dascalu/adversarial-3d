@@ -65,4 +65,5 @@ flags.DEFINE_float('channel_mult_max', 1.3, 'maximum per channel multiplicative 
 
 flags.DEFINE_float('stddev', 0.1, 'stddev for gaussian noise')
 
+flags.DEFINE_string('f', '', 'kernel')
 cfg = tf.compat.v1.flags.FLAGS
