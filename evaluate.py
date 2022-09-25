@@ -281,8 +281,10 @@ def main():
     print("Average TFR for adversarial images: {}\n".format(get_average_metric(adv_results, for_tfr=True)))
 
     for model_name in adv_results:
-        print("Average TFR for model {}: {}".format(model_name, get_average_metric_for_model(adv_results, model_name,
-                                                                                             for_tfr=True)))
+        print("Average TFR on adversarial images for model {}: {}".format(model_name, get_average_metric_for_model(
+            adv_results, model_name, for_tfr=True)))
+        print("Average classification accuracy on normal images for model {}: {}".format(
+            model_name, get_average_metric_for_model(normal_results, model_name, for_tfr=False)))
         print("Average iterations for creating adversarial examples for model {}: {}".format(
             model_name, get_average_num_steps(num_steps_dict, model_name)))
 
