@@ -84,13 +84,14 @@ def main():
     if log_writer is not None:
         log_writer.close()
 
+
 def average_loss_under_threshold(model):
     if len(model.main_loss_history) < 400:
         return False
 
     num_last_steps = 400
     loss_sum = sum(model.main_loss_history[-num_last_steps:])
-    average_loss =  loss_sum / num_last_steps
+    average_loss = loss_sum / num_last_steps
 
     if average_loss < cfg.loss_early_stopping_threshold:
         print("Early Stopping, average loss over past {} steps is {}".format(num_last_steps, average_loss))

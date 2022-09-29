@@ -77,7 +77,7 @@ def get_tfr_and_accuracy(model, target_label, predictions):
     accuracy = accuracy / len(label_predictions)
 
     tfr = sum([target_label == predicted_label for predicted_label in label_predictions])
-    tfr  = tfr / len(label_predictions)
+    tfr = tfr / len(label_predictions)
 
     return accuracy, tfr
 
@@ -117,6 +117,7 @@ def save_num_steps(num_steps_dict, num_steps, model_name, target_label):
 
     num_steps_dict[model_name][target_label] = num_steps
 
+
 def flatten_dict(result_dict, for_tfr):
     result_list = []
     for model in result_dict:
@@ -127,6 +128,7 @@ def flatten_dict(result_dict, for_tfr):
                 result_list.append(result_dict[model][target_label]['accuracy'])
 
     return result_list
+
 
 def get_average_metric(results_dict, for_tfr):
     metric_sum = 0
@@ -211,6 +213,7 @@ def get_index_first_digit(string):
             return i
     raise ValueError("The given string is expectde to have numbers in it!")
 
+
 def main():
     models = data.load_dataset("./dataset")
 
@@ -287,6 +290,7 @@ def main():
             model_name, get_average_metric_for_model(normal_results, model_name, for_tfr=False)))
         print("Average iterations for creating adversarial examples for model {}: {}".format(
             model_name, get_average_num_steps(num_steps_dict, model_name)))
+
 
 if __name__ == '__main__':
     main()
