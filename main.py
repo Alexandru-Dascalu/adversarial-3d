@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
 import tensorflow as tf
 
 gpu = tf.config.list_physical_devices('GPU')[0]
@@ -8,7 +9,7 @@ tf.config.set_logical_device_configuration(
     gpu,
     [tf.config.LogicalDeviceConfiguration(memory_limit=3800)])
 
-from PIL import Image
+
 from renderer import Renderer
 from net import AdversarialNet
 import config
