@@ -79,7 +79,7 @@ class Renderer(object):
 
     def load_obj(self, file_path):
         """
-        Load 3D model from .obj file and create vertex array based on it.
+        Load 3D model from .obj file and create a vertex array based on it.
 
         Parameters
         ----------
@@ -171,8 +171,7 @@ class Renderer(object):
 
     def render(self, batch_size):
         """
-        Render a batch of images of the object, each time in a different random pose, and returns the UV mappings for
-        each.
+        Render a batch of images of the object, each time in a different random pose, and returns the UV maps for each.
 
         Parameters
         ----------
@@ -181,7 +180,7 @@ class Renderer(object):
         Returns
         -------
         warp
-            Numpy array representing the UV mapping.
+            Numpy array representing the UV maps.
         """
         warp = np.empty(
             (batch_size, self.height, self.width, 2), dtype=np.float32)

@@ -29,6 +29,7 @@ def main():
     else:
         raise ValueError("invalid texture size!")
 
+    # create renderer used to make UV maps
     renderer = Renderer((299, 299))
     renderer.set_parameters(
         camera_distance=(cfg.camera_distance_min, cfg.camera_distance_max),
@@ -51,7 +52,7 @@ def main():
         num_new_renders = int(np.ceil(config.BATCH_SIZE * (1 - cfg.batch_reuse_ratio)))
         print("New renders for each step: {}".format(num_new_renders))
         for i in range(cfg.iterations):
-            # UV mapping is a numpy array of shape batch_size x texture_width x texture_height x 2
+            # in the first step, there are no previous batch samples, and so we need to create a full batch.
             if i == 0:
                 uv_mappings = renderer.render(config.BATCH_SIZE)
             else:
@@ -86,6 +87,19 @@ def main():
 
 
 def average_loss_under_threshold(model):
+    """
+    Calculate if the average loss of the past 400 steps if under the threshold.
+
+    Parameters
+    ----------
+    model : AdversarialNet
+        The adversarial model.
+
+    Returns
+    -------
+    bool
+        True if the average loss is under the threshold, False if not.
+    """
     if len(model.main_loss_history) < 400:
         return False
 
@@ -99,10 +113,12 @@ def average_loss_under_threshold(model):
     else:
         return False
 
-def save_adv_texture(model, i):
+
+def save_adv_texture(model, optimisation_step):
     adv_texture = np.rint(model.adv_texture.numpy() * 255)
     adv_texture = Image.fromarray(adv_texture.astype(np.uint8))
-    adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, i))
+    adv_texture.save('{}/{}_{}_adv_{}.jpg'.format(cfg.image_dir, config.NAME, config.TARGET_LABEL, optimisation_step))
+
 
 def log_training_to_console(model, step):
     print("Step: {}".format(step))
