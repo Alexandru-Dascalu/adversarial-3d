@@ -41,7 +41,7 @@ def render(std_texture, adv_texture, uv_maps):
 
     # check if we apply random noise to simulate camera noise
     if cfg.photo_error:
-        new_std_images, new_adv_images = apply_photo_error(uv_maps.shape[0], new_std_images, new_adv_images)
+        new_std_images, new_adv_images = apply_photo_error(new_std_images, new_adv_images)
 
     new_std_images, new_adv_images = normalize(new_std_images, new_adv_images)
     return new_std_images, new_adv_images
